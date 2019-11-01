@@ -24,18 +24,18 @@ output:
 
 ```{r setup, include=FALSE, echo=FALSE}
 knitr::opts_chunk$set(
-	echo = FALSE,
-	fig.align = "center",
-	message = FALSE,
-	warning = FALSE,
-	# dev = "pdf",
-	dev = "png",
-	dpi = 200,
-	fig.height = 5*1.4,
-	fig.width = 8*1.4
+  echo = FALSE,
+  fig.align = "center",
+  message = FALSE,
+  warning = FALSE,
+  # dev = "pdf",
+  dev = "png",
+  dpi = 200,
+  fig.height = 5 * 1.4,
+  fig.width = 8 * 1.4
 )
 
-rm(list=ls())
+rm(list = ls())
 
 library(tidyverse)
 library(tsibble)
@@ -55,19 +55,19 @@ source("R/plot-helpers.R")
 
 # packages .bib file
 knitr::write_bib(c("base", "lme4"),
-                 "packages.bib",
-                 width = 60)
+  "packages.bib",
+  width = 60
+)
 
 # furrr/future settings
-plan(multicore, workers = 11)  # number of cpus
-options(future.globals.maxSize = 850*1024^2)  # increase limit to 850 Mb
+plan(multicore, workers = 11) # number of cpus
+options(future.globals.maxSize = 850 * 1024^2) # increase limit to 850 Mb
 
 # The base::scale function returns a matrix which causes issues later on when
 # fitting and predicting with lm. Use this because it returns a vector.
 scale_dbl <- function(x) {
-  (x - mean(x))/sd(x)
+  (x - mean(x)) / sd(x)
 }
-
 
 #### Parameters ===============================================================
 # Data
@@ -86,35 +86,38 @@ fcst_test_periods <- 1:96
 fcst_test_dates <- dmy("3/1/2017") + 0:355 # exclude final week of year and first day back due to holiday effects
 fcst_train_window <- 120
 fcst_min_train_days <- 40
-building_attributes = c("basebldngfeedonly",
-                        "dxsystem",
-                        "electricelementheating",
-                        "centraldist")
+building_attributes <- c(
+  "basebldngfeedonly",
+  "dxsystem",
+  "electricelementheating",
+  "centraldist"
+)
 # TODO: This needs to be updated in more than one place (see test-models.R)
 #       whenever predictors change. Not good! Define in one place only.
 #       Formula for test_models should be created here based on these vars.
 # TODO: Rename to pred_vars because lagged demand is also included.
-weather_vars <- c("scaled_temperature",
-                  "scaled_temperature_lag_12",
-                  "scaled_temperature_lag_24",
-                  "scaled_temperature_lag_48",
-                  "scaled_temperature_lag_72",
-                  "scaled_temperature_lag_96",
-                  "scaled_temperature_lag_192",
-                  "scaled_temperature_lag_288",
-                  "scaled_temperature_max",
-                  "scaled_temperature_min",
-                  "scaled_temperature_avg",
-                  "scaled_wh_lag_96",
-                  "scaled_wh_lag_192",
-                  "scaled_wh_lag_672")
+weather_vars <- c(
+  "scaled_temperature",
+  "scaled_temperature_lag_12",
+  "scaled_temperature_lag_24",
+  "scaled_temperature_lag_48",
+  "scaled_temperature_lag_72",
+  "scaled_temperature_lag_96",
+  "scaled_temperature_lag_192",
+  "scaled_temperature_lag_288",
+  "scaled_temperature_max",
+  "scaled_temperature_min",
+  "scaled_temperature_avg",
+  "scaled_wh_lag_96",
+  "scaled_wh_lag_192",
+  "scaled_wh_lag_672"
+)
 
 # Presentation
 p_one_day_ahead_date <- dmy("23/8/2017")
 scenario_bid <- "BID0010"
 scenario_dates <- ymd("2017-01-09") + 0:4
 business_hour_periods <- 29:76
-
 
 #### Setup ====================================================================
 # Run if qh .RData file hasn't been created
@@ -126,63 +129,74 @@ if (!file.exists(all_data_file)) {
     building_list_file = building_list_file,
     business_days = TRUE
   )
-  
+
   # Scale independent variables
   main_df <- main_df %>%
     rename_at(vars(starts_with("temperature")), ~ paste0("scaled_", .)) %>%
     rename_at(vars(starts_with("wh_lag")), ~ paste0("scaled_", .)) %>%
-    mutate(temperature = scaled_temperature,  # keep original temperature for plotting
-           wh_lag_96 = scaled_wh_lag_96) %>%  # keep original 96 lag demand for plotting
-    mutate_at(vars(starts_with("scaled")), scale_dbl) %>%  # scale
-    select(ts, date, period, bid, wh, temperature, wh_lag_96,
-           starts_with("scaled"), !!building_attributes)
-  
+    mutate(
+      temperature = scaled_temperature, # keep original temperature for plotting
+      wh_lag_96 = scaled_wh_lag_96
+    ) %>% # keep original 96 lag demand for plotting
+    mutate_at(vars(starts_with("scaled")), scale_dbl) %>% # scale
+    select(
+      ts, date, period, bid, wh, temperature, wh_lag_96,
+      starts_with("scaled"), !!building_attributes
+    )
+
   # Filter for training and test dates only
   dates_filter <- fcst_test_dates %>%
     map(~ .x - days(0:fcst_train_window)) %>%
     as_vector() %>%
     as_date() %>%
     unique()
-  
+
   main_df <- main_df %>%
-    filter(date %in% dates_filter,
-           period %in% fcst_test_periods)
-  
+    filter(
+      date %in% dates_filter,
+      period %in% fcst_test_periods
+    )
+
   save(main_df, file = all_data_file)
 } else {
   cat("Loaded cached processed data...\n\n")
   load(all_data_file)
 }
 
-
 # Filter problem data
 main_df <- main_df %>%
-  filter(!(bid == "BID0059" & year(date) == 2017 & month(date) %in% 6:7))  # flat readings
-
+  filter(!(bid == "BID0059" & year(date) == 2017 & month(date) %in% 6:7)) # flat readings
 
 # Calculate other variables
 n_buildings <- length(unique(main_df$bid))
 fcst_test_dates <- as_date(intersect(fcst_test_dates, unique(main_df$date)))
 
-
 #### Feature selection ========================================================
 if (!file.exists(fs_df_file)) {
-  cat("Running feature selection for max of", n_max_features,
-      "candidate predictors...\n\n")
+  cat(
+    "Running feature selection for max of", n_max_features,
+    "candidate predictors...\n\n"
+  )
   start_time <- Sys.time()
-  fs_df <- list(month = unique(month(fcst_test_dates)),
-                period = fcst_test_periods) %>%
+  fs_df <- list(
+    month = unique(month(fcst_test_dates)),
+    period = fcst_test_periods
+  ) %>%
     cross_df() %>%
-    mutate(fs_date = map(month,
-                         ~ min(fcst_test_dates[month(fcst_test_dates) == .x]))) %>%
+    mutate(fs_date = map(
+      month,
+      ~ min(fcst_test_dates[month(fcst_test_dates) == .x])
+    )) %>%
     unnest() %>%
-    mutate(features = future_map2(fs_date,
-                                  period,
-                                  select_features,
-                                  train_window = fcst_train_window,
-                                  min_train_days = fcst_min_train_days,
-                                  n_var_max = n_max_features,
-                                  .progress = TRUE))
+    mutate(features = future_map2(
+      fs_date,
+      period,
+      select_features,
+      train_window = fcst_train_window,
+      min_train_days = fcst_min_train_days,
+      n_var_max = n_max_features,
+      .progress = TRUE
+    ))
 
   print(Sys.time() - start_time)
   save(fs_df, file = fs_df_file)
@@ -193,26 +207,31 @@ if (!file.exists(fs_df_file)) {
 
 fs_df <- fs_df %>%
   mutate(vars = map(features, ~ .x %>%
-                      # filter(bic == min(bic)) %>%
-                      filter(loocv == min(loocv)) %>%
-                      pull(vars) %>%
-                      unlist()))
-
+    # filter(bic == min(bic)) %>%
+    filter(loocv == min(loocv)) %>%
+    pull(vars) %>%
+    unlist()))
 
 #### Fit models ===============================================================
 if (!file.exists(model_df_file)) {
   cat("Fitting models...\n\n")
   start_time <- Sys.time()
 
-  model_df <- list(period = fcst_test_periods,
-                   fcst_date = fcst_test_dates) %>%
+  model_df <- list(
+    period = fcst_test_periods,
+    fcst_date = fcst_test_dates
+  ) %>%
     cross_df() %>%
     mutate(fcst_date = as_date(fcst_date)) %>%
-    mutate(fit_results = future_map2(fcst_date, period, test_models,
-                                     scenario_dates = scenario_dates,
-                                     train_window = fcst_train_window,
-                                     min_train_days = fcst_min_train_days,
-                                     .progress = TRUE)) %>%
+    mutate(fit_results = future_map2(
+      fcst_date,
+      period,
+      test_models,
+      scenario_dates = scenario_dates,
+      train_window = fcst_train_window,
+      min_train_days = fcst_min_train_days,
+      .progress = TRUE
+    )) %>%
     unnest(fit_results)
 
   print(Sys.time() - start_time)
@@ -220,14 +239,13 @@ if (!file.exists(model_df_file)) {
 } else {
   cat("Loaded cached models...\n\n")
   load(model_df_file)
-  fcst_test_dates <- unique(model_df$fcst_date)  # use what is in cached file
+  fcst_test_dates <- unique(model_df$fcst_date) # use what is in cached file
 }
 ```
 
 \begin{abstract}
 Buildings are typically equipped with smart meters to measure demand at regular intervals. Smart meter data for a single building has many uses, such as forecasting and assessing overall building performance. However, when data is available from multiple buildings, smart meter data can have additional uses which are rarely explored. For instance, we can explore how different building characteristics influence energy demand. If each building is treated as a random effect and building characteristics are handled as fixed effects, a mixed effects model can be used to estimate how characteristics affect energy usage. In this paper we demonstrate that producing one-day ahead demand predictions for `r n_buildings` commercial office buildings using mixed models can improve forecasting accuracy. We experiment with random intercept, random intercept and slope, and subject-specific curve mixed models. The predictive performance of the mixed effects models are tested against naive, linear and nonlinear benchmark models fitted to each building separately. Having justified the use of a mixed model framework, we provide an example showing how mixed model frameworks can, when combined with smart meter data and building attributes, be used to carry out scenario analysis. We demonstrate how expected electricity consumption may increase or decrease given a change in building attributes. This research justifies using mixed models to improve forecasting accuracy and to quantify changes in energy consumption under different building configuration scenarios.
 \end{abstract}
-
 
 # Introduction
 
@@ -251,7 +269,6 @@ The main contribution of this paper is to present an approach to forecasting ele
 
 This paper is structured as follows. Section \@ref(data) describes the data we are working with. Section \@ref(methodology) gives a detailed description of the models we are working with and how they are assessed. Results of our forecasts and a scenario analysis example are presented in Section \@ref(results). Concluding remarks are given in Section \@ref(conclusion).
 
-
 # Data
 
 We have time series and attribute data for `r n_buildings` commercial office buildings located across Australia. We focus on business days only in our analysis as these are significantly more important than non-business days for energy management. Non-business days typically have far less demand than business days as equipment is non-operational. Note that our approach can be applied to non-business days as well.
@@ -264,7 +281,6 @@ The relationship between current temperature and electricity demand is shown in 
 
 One issue that arises from only including business days in our analysis is that there is a gap between the Friday demand and Monday. As we are including one-day lagged demand as one of our predictors Monday's will have Friday values as their one-day lagged demand. This results in a different relationship between demand and lagged demand for Mondays as can be seen in Figure \@ref(fig:wh-lagwh96-scatter).
 
-
 (ref:wh-line-cap) Normalised electricity demand for four commercial office buildings in Australia on `r format(fcst_test_dates[5], "%B %d, %Y")`. Only one day of data is shown although it is enough to see clear differences in the demand profiles. Some buildings show significantly more volatility in their demand when compared to others.
 
 ```{r wh-line, fig.cap="(ref:wh-line-cap)"}
@@ -274,10 +290,11 @@ main_df %>%
   ggplot(aes(x = ts, y = wh)) +
   geom_line() +
   facet_wrap(~bid) +
-  labs(y = expression(Normalised~electricity~(Wh/m^2)),
-       x = "Date")
+  labs(
+    y = expression(Normalised ~ electricity ~ (Wh / m^2)),
+    x = "Date"
+  )
 ```
-
 
 ```{r temp-wh-scatter, fig.cap="Relationship between temperature and electricity demand for four Australian office buildings during Summer. Data for at four different 15-minute periods of the day are shown. We can see a clear change in the relationship of our predictor and response variables both between buildings and at different times of the day."}
 
@@ -285,32 +302,39 @@ plot_bids <- c(sample(unique(main_df$bid), 3), "BID0052A")
 plot_periods <- c(24, 48, 72, 96)
 
 main_df %>%
-  filter(bid %in% plot_bids,
-         month(ts) %in% c(12, 1, 2),
-         period %in% plot_periods) %>%
+  filter(
+    bid %in% plot_bids,
+    month(ts) %in% c(12, 1, 2),
+    period %in% plot_periods
+  ) %>%
   mutate(hour = factor(hour(ts))) %>%
   mutate(period = factor(period)) %>%
   ggplot(aes(x = temperature, y = log(wh), colour = bid)) +
   geom_point(shape = "O", alpha = 0.5) +
   geom_smooth(alpha = 0.2, method = "lm", formula = y ~ ns(x, df = 3)) +
-  facet_grid(bid~period, scales = "free") +
-  labs(y = expression(Log~normalised~electricity~(log(Wh/m^2))),
-       x = "Temperature (°C)") +
+  facet_grid(bid ~ period, scales = "free") +
+  labs(
+    y = expression(Log ~ normalised ~ electricity ~ (log(Wh / m^2))),
+    x = "Temperature (°C)"
+  ) +
   theme(legend.position = "none")
 ```
 
-
 ```{r wh-lagwh96-scatter, fig.cap="Relationship between electricity demand and one-day lagged demand for all Australian office buildings during Summer. Mondays have a different relationship with their one-day lagged demand values due to the discontinuity in time series introduced by removing non-business days. This is most noticeable during business hours (periods 48 and 72)."}
 main_df %>%
-  filter(month(ts) %in% c(12, 1, 2),
-         period %in% plot_periods) %>%
+  filter(
+    month(ts) %in% c(12, 1, 2),
+    period %in% plot_periods
+  ) %>%
   mutate(wday = wday(ts, label = TRUE, abbr = FALSE)) %>%
   ggplot(aes(x = wh_lag_96, y = wh, colour = wday)) +
   geom_point(shape = "O", alpha = 0.25) +
   geom_smooth(alpha = 0.2, method = "lm", formula = y ~ ns(x, df = 3)) +
   facet_wrap(~period) +
-  labs(y = expression(Normalised~electricity~(Wh/m^2)),
-       x = expression(One~day~lagged~normalised~electricity~(Wh/m^2))) +
+  labs(
+    y = expression(Normalised ~ electricity ~ (Wh / m^2)),
+    x = expression(One ~ day ~ lagged ~ normalised ~ electricity ~ (Wh / m^2))
+  ) +
   ylim(0, NA) +
   xlim(0, NA)
 ```
@@ -326,45 +350,52 @@ Building attribute data describes different characteristics of each building. Th
 
 For a more detailed discussion of each of these attributes refer to @Roach2019-ss.
 
-
 ## Modelling the temperature electricity relationship
 
 The relationship between temperature and electricity demand is shown in Figure \@ref(fig:plot-linear-cubic-splines). The relationship is modelled using three approaches: a linear spline, cubic spline and natural spline. All are fitted with three degrees of freedom. We can see that using the linear spline doesn't capture the smooth sigmoid like curve of the relationship whereas the cubic spline appears to extrapolate in an unrealistic manner at the extreme temperatures. The natural spline has less pronounced movement near the extremes due to the linearity constraint and so it is preferred over the other two methods. Hence, each weather variable and lagged weather variable is modelled using a natural spline with three degrees of freedom. Knots were placed at the 33^rd^ and 67^th^ quantiles.
-
 
 (ref:linear-cubic-splines-cap) Linear and cubic splines with three degrees of freedom fit to one building's demand data during Summer at 11:45 am. We observe that the linear spline results in severe kinks in the relationship which seems unrealistic. The cubic spline gives a much smoother fit and appears to be the more reasonable option. The natural spline is better again as it does not have the dramatic dip in predicted demand that the cubic spline has for high temperatures.
 
 ```{r plot-linear-cubic-splines, fig.cap="(ref:linear-cubic-splines-cap)"}
 p_data <- main_df %>%
-  filter(bid == "BID0005",
-         period == 48,
-         # period %in% 40:52,
-         month(ts) %in% c(12, 1, 2))
+  filter(
+    bid == "BID0005",
+    period == 48,
+    # period %in% 40:52,
+    month(ts) %in% c(12, 1, 2)
+  )
 
 lm_ls <- lm(log(wh) ~ bs(temperature, df = 3, degree = 1), p_data)
 lm_cs <- lm(log(wh) ~ bs(temperature, df = 3), p_data)
 lm_ns <- lm(log(wh) ~ ns(temperature, df = 3), p_data)
 
 p_data <- p_data %>%
-  mutate(`Linear spline` = predict(lm_ls, .),
-         `Cubic spline` = predict(lm_cs, .),
-         `Natural spline` = predict(lm_ns, .))
+  mutate(
+    `Linear spline` = predict(lm_ls, .),
+    `Cubic spline` = predict(lm_cs, .),
+    `Natural spline` = predict(lm_ns, .)
+  )
 
 ggplot(mapping = aes(x = temperature)) +
   geom_point(data = p_data, aes(y = log(wh)), shape = "O", alpha = 0.5) +
-  geom_line(data = p_data %>%
-              select(temperature, `Linear spline`, `Cubic spline`,
-                     `Natural spline`) %>%
-              gather(var, val, -temperature) %>%
-              mutate(var = factor(var, levels = c("Linear spline", "Cubic spline", "Natural spline"))),
-            aes(y = val, colour = var)) +
+  geom_line(
+    data = p_data %>%
+      select(
+        temperature, `Linear spline`, `Cubic spline`,
+        `Natural spline`
+      ) %>%
+      gather(var, val, -temperature) %>%
+      mutate(var = factor(var, levels = c("Linear spline", "Cubic spline", "Natural spline"))),
+    aes(y = val, colour = var)
+  ) +
   facet_wrap(~var) +
-  labs(colour = "Method",
-       y = expression(Log~normalised~electricity~(log(Wh/m^2))),
-       x = "Temperature (°C)") +
+  labs(
+    colour = "Method",
+    y = expression(Log ~ normalised ~ electricity ~ (log(Wh / m^2))),
+    x = "Temperature (°C)"
+  ) +
   theme(legend.position = "none")
 ```
-
 
 # Methodology
 
@@ -374,12 +405,11 @@ Several linear and mixed effects models were tested to determine which produced 
 
 To justify our final model that we use for scenario analysis we test several models that can be thought of as simpler versions. Each model has a change introduced and the improvement in performance is used as justification for each. As a starting benchmark, we fit individual linear regression models to each building. The second set of individual models incorporate natural splines to model the temperature and demand relationships. The third, fourth and fifth models are random intercept, random slope and subject specific curve models. Finally, the sixth model is a subject specific curve model that includes building attributes as fixed effects. We also fit a naive model that uses the previous day's observed values as a benchmark. This is summarised in Table \@ref(tab:model-frameworks).
 
-
 Table: (\#tab:model-frameworks) Models
 
 Model                        | Abbreviation | Description              | Weather Variables
 -----------------------------|--------------|--------------------------|-----------
-Naive                       | Naive | Naive forecasting model | None
+Naive                        | Naive | Naive forecasting model | None
 Individual linear regression | ILR  | Linear regression models fit to each building | Current temperature
 Individual natural splines   | INS  | Natural spline models fit to each building | Feature selection
 Pooled regression            | PR | Regression model. Used for feature selection | All/Feature selection
@@ -388,13 +418,11 @@ Random intercept and slope   | RI   | Mixed effects model with random intercept 
 Subject specific curves      | SSC  | Mixed effects model with subject specific curves | Feature selection
 Subject specific curves with attributes | SSCATTR | SSC with building attributes included as fixed effects | Feature selection
 
-
 Due to the evolving nature of energy demand across the day we fit separate models for each 15-minute period of the day. This gives 96 models for each building (when fitting individual models) and 96 models for each mixed effects formulation.
 
 Throughout our modelling we use natural splines to model the relationship between predictor variables and demand. This differs somewhat from other studies on semiparametric mixed effects models which use piecewise linear splines to model variable relationships [@Durban2005-lk]. However, when we inspect Figure \@ref(fig:plot-linear-cubic-splines) we see that a natural spline gives a more reasonable fit at the sparsely populated extremes when dealing with temperature data.
 
 Predictors are centered and scaled prior to training models. The exact features that are used for models are determined through our feature selection approach (Section \@ref(feature-selection)). Models are fit by maximising the log-likelihood criterion.
-
 
 ### Individual models
 
@@ -403,21 +431,17 @@ These serve as benchmark models to determine if moving to a mixed models framewo
 #### Naive forecast model
 
 The simplest benchmark is a naive forecasting model, where the previous day's values are used. This is often a surprisingly effective forecasting approach [@Hyndman2018-ok]. The demand for a building at time $t$ is given by
-
 $$
-y_{t} = y_{t-24 \text{ hours}} + \epsilon_{t}, \quad \epsilon_{t} \sim N(0,\sigma^2).
+  y_{t} = y_{t-24 \text{ hours}} + \epsilon_{t}, \quad \epsilon_{t} \sim N(0,\sigma^2).
 $$
-
 Note that since we have restricted ourselves to business days only, $t-24 \text{ hours}$ is a slight abuse of notation and is used to represent the observed values from the last _business_ day. So a forecast for Monday will use observed values from the previous Friday. Using observed values from Sunday would produce a much weaker benchmark due to different demand dynamics on working and non-working days.
 
 #### Individual linear regression model
 
 A simple benchmark model is created by fitting a linear regression model to each building and period of the day. The demand for a building at time $t$ is given by
-
 $$
 \log y_{t} = \beta_{0,p} + \beta_{1,p} w_{0,t} + \epsilon_{t}, \quad \epsilon_{t} \sim N(0,\sigma^2_{p}),
 $$
-
 where $p$ is the 15-minute period of the day at time $t$, $w_{0,t}$ is the scaled temperature experienced^[The 0 subscript denotes no lag and is included to keep notation consistent with Table \@ref(tab:weather-vars).] at time $t$ and $\epsilon_{t}$ is the residual. We call these our "Individual Linear Regression" (ILR) models.
 
 #### Individual natural spline model
@@ -425,35 +449,28 @@ where $p$ is the 15-minute period of the day at time $t$, $w_{0,t}$ is the scale
 A linear relationship between temperature and electricity demand may not be sufficient to adequately capture the relationship between the two. Natural cubic splines allow a more flexible relationship between predictors and the response. In this model the log demand of each building is modelled separately using natural splines. Additional predictor variables are introduced in this model, such as lagged temperature variables; maximum, minimum and average temperatures; and lagged demand. Details of each of these predictors is presented in Table \@ref(tab:weather-vars). We denote this set of predictor variables as $\mathcal{P}_t$, which contains the selected variables for the 15-minute period of day and month at time $t$. The exact combination of variables is chosen via our feature selection methodology (see Section \@ref(feature-selection)).
 
 In this model, a building's demand based on temperature and other selected predictors is given by
-
 $$
 \begin{gathered}
 \log y_{t} = \sum_{x_{i,t} \in \mathcal{P}_t } f_{i,p}(x_{i,t}) + \epsilon_{t}, \quad \epsilon_{t} \sim N(0, \sigma^2_{p}), \\
 f_{i,p}(x) = \sum^K_{k=1} \beta_{i,p,k} (x - \kappa_k)_+^3,
 \end{gathered}
 $$
-
 where $x_{i,t}$ is the value of the $i$^th^ predictor variable at time $t$ and $f_{i,p}$ is a smooth function modelling the relationship between $x_{i,t}$ and the logged demand for period $p$. We refer to this set of models as the "Individual Natural Spline" (INS) models.
 
 We use natural splines with three degrees of freedom as our smooth functions. Knot positions $\kappa_k$ are calculated based on quantiles of the data. Natural splines are chosen over other types as they enforce the constraint of linearity beyond the boundary points, which seems a fair assumption when considering the behaviour of electricity demand consumption in relation to extreme temperatures (see Figure \@ref(fig:plot-linear-cubic-splines) for an illustration). We wish to create a parsimonious model and assuming anything beyond a linear relationship in the extremes seems contrary to that aim. Failing to enforce the linearity constraint may result in unusual relationships being predicted if extrapolating beyond the training data.
 
-
 ### Pooled regression model
 
 Our pooled regression model is fit using data from all buildings. One model is fit for each 15-minute period of the day which is then used to predict demand for each building $b$ at time $t$. Note that since all buildings are included in the model, we introduce the $b$ subscript for buildings. In addition to testing this model's forecasting capability we will also use it to perform feature selection in Section \@ref(feature-selection) as it is much faster to train than mixed effects models. Since buildings are treated as fixed effects we can use ordinary least squares to quickly fit the model. Demand for building $b$ at time $t$ is given by
-
-
 $$
 \begin{gathered}
 \log y_{b,t} = \sum_{x_{b,i,t} \in \mathcal{P}_t } f_{i,p}(x_{b,i,t}) + \beta_{b,p}+ \epsilon_{b,t}, \quad \epsilon_{b,t} \sim N(0, \sigma^2_{p}), \\
 f_{i,p}(x) = \sum^K_{k=1} \beta_{i,p,k} (x - \kappa_k)_+^3,
 \end{gathered}
 $$
-
 where variables are defined as for the INS model. An additional fixed effect $\beta_{b,p}$ has been added to account for differences in each building's consumption. This effectively acts as a dummy variable. We call this our pooled regression (PR) model.
 
 We do not estimate a separate smooth relationship between weather variables and demand for each building in the pooled model. Instead, we estimate the population's relationship. So, for the $i$^th^ predictor we construct a smooth function $f_{i,p}$ for all buildings instead of a set of smooth functions $f_{b,i,l}$ for each building.
-
 
 ### Mixed models
 
@@ -466,7 +483,6 @@ In the notation that follows we include subscripts $b$ to denote each building. 
 #### Random intercept model
 
 The simplest mixed effects model is a random intercept (RI) model. We model the log of the demand by
-
 $$
 \begin{gathered}
 \log y_{b,t} = \sum_{x_{b,i,t} \in \mathcal{P}_t } f_{i,p}(x_{b,i,t}) + u_{b,p} + \epsilon_{b,t}, \\
@@ -474,14 +490,11 @@ f_{i,p}(x) = \sum^K_{k=1} \beta_{i,p,k} (x - \kappa_k)_+^3, \\
 \epsilon_{b,t} \sim N(0, \sigma^2_{\epsilon, p}), \quad u_{b,p} \sim N(0, \sigma_{u,p}^2),
 \end{gathered}
 $$
-
 where $u_{b,p}$ is a random effect that controls the intercept of the model. This is similar in form the the pooled regression model, with the coefficient $\beta_{b,p}$ replaced by the random intercept $u_{b,p}$. We don't use this model for feature selection in Section \@ref(feature-selection) as it takes much longer to fit than the pooled regression model.
-
 
 #### Random intercept and slope model
 
 Expanding on this is the random intercept and slope (RIS) model which has a random effect for both the intercept and slope of the model. We model demand by
-
 $$
 \begin{gathered}
 \log y_{bt} = \sum_{x_{b,i,t} \in \mathcal{P}_t } f_{i,p}(x_{b,i,t}) + u_{b,p,1} + u_{b,p,2} w_{b,0,t} + \epsilon_{b,t}, \\
@@ -497,11 +510,9 @@ $$
 
 Here we have included a random slope based on scaled current temperature, $w_{b,0,t}$. The random effects $u_{b,p,1}$ and $u_{b,p,2}$ control the subject-specific differences for intercept and slope, respectively. The matrix $\Sigma$ is a variance-covariance matrix for the random effects. It includes terms for the variance of intercepts between groups ($\sigma^2_{u,1}$), variance of slopes ($\sigma^2_{u,2}$) and the covariance between intercepts and slopes ($\sigma_{u,1,2}$).
 
-
 #### Subject specific curves model
 
 As the relationship between demand and temperature can be quite non-linear we also explore modelling the subject specific differences in the temperature and energy relationship using splines. We call this model the subject specific curve (SSC) model in keeping with @Durban2005-lk. Note that we have modified their model to work with natural cubic splines as this gives a better fit when modelling the temperature and electricity relationship compared to penalized linear splines (Figure \@ref(fig:plot-linear-cubic-splines)). It is given by
-
 $$
 \begin{gathered}
 \log y_{bt} = \sum_{x_{b,i,t} \in \mathcal{P}_t } f_{i,p}(x_{b,i,t}) + g_{b,p}( w_{b,0,t} ) + \epsilon_{b,t}, \\
@@ -513,13 +524,11 @@ $$
 
 As with our other models we use natural cubic splines with three degrees of freedom for both $f_{i,p}$ and $g_{b,p}$. This model allows us to capture separate temperature and electricity relationships for each building while also including the population relationships between electricity demand and other selected predictors.
 
-
 #### Subject specific curves with attributes model
 
 As we wish to carry out scenario analysis we introduce several new variables into our model. These variables are the set of building attributes discussed in Section \@ref(attribute-data) which we denote by $\mathcal{A}$. We treat each of these attributes as a fixed effect. We refer to this model as the subject specific curves with attributes (SSCATTR) model.
 
 Our model for scenario analysis is given below
-
 $$
 \begin{gathered}
 \log y_{bt} = \sum_{x_{b,i,t} \in \mathcal{P}_t } f_{i,p}(x_{b,i,t}) + g_{b,p}( w_{b,0,t} ) + \sum_{a \in \mathcal{A}} \beta_a x_{b,a} + \epsilon_{b,t}, \\
@@ -528,9 +537,7 @@ f_{i,p}(x) = \sum^K_{k=1} \beta_{i,p,k} (x - \kappa_k)_+^3, \quad g_{b,p}(x) = \
 u_{b,p,k} \sim N(0, \sigma^2_{u,p}).
 \end{gathered}
 $$
-
 This is the same as our SSC model apart from the addition of the building attributes. The fixed effect $x_{b,a}$ is a Boolean variable that indicates if attribute $a$ is present for building $b$.
-
 
 ## Feature selection
 
@@ -550,7 +557,6 @@ We use best subset selection during feature selection. So, given $p$ predictors 
 
 A key point to note is that feature selection was done on the weather variables and _not_ the spline basis functions. Doing so would destroy the properties of a spline if only a subset of its basis functions were to be selected.
 
-
 (ref:fs-model-selection) LOOCV scores for each month. In general, the LOOCV errors initially decrease as variables are added, but begin to increase slightly at a certain point for each period.
 
 ```{r fs-model-selection, fig.cap = "(ref:fs-model-selection)"}
@@ -558,23 +564,23 @@ fs_df %>%
   select(month, period, features) %>%
   unnest() %>%
   select(month, period, n_vars, loocv) %>%
-  mutate(month = month(month, label=TRUE)) %>%
+  mutate(month = month(month, label = TRUE)) %>%
   ggplot(aes(y = loocv, x = n_vars, colour = period, group = period)) +
   geom_line(alpha = 0.5) +
   facet_wrap(~month) +
   scale_colour_gradient(low = ba_palette[1], high = ba_palette[2]) +
-  ylim(0,0.25) +
-  labs(x = "Number of variables",
-       y = "LOOCV scores",
-       colour = "Period")
+  ylim(0, 0.25) +
+  labs(
+    x = "Number of variables",
+    y = "LOOCV scores",
+    colour = "Period"
+  )
 ```
-
-
 
 Table: (\#tab:weather-vars) Predictor variables evaluated during feature selection stage when determining $\mathcal{P}_t$.
 
 Variable $x_{b,i,t}$ | Lag (15-minute periods) | Description
------------|---------|-------------------------------------------------
+----------------|---------|-------------------------------------------------
 $w_{b,0,t}$     | 0       | Scaled current temperature.
 $w_{b,12,t}$    | 12      | Scaled temperature lagged by 3 hours.
 $w_{b,24,t}$    | 24      | Scaled temperature lagged by 6 hours.
@@ -590,8 +596,6 @@ $y_{b,96,t}$    | 96      | Scaled actual demand lagged by 1 day.
 $y_{b,192,t}$   | 192     | Scaled actual demand lagged by 2 days.
 $y_{b,672,t}$   | 672     | Scaled actual demand lagged by 1 week.
 
-
-
 ## Validation
 
 ### Rolling origin 1-day ahead forecasts
@@ -599,7 +603,6 @@ $y_{b,672,t}$   | 672     | Scaled actual demand lagged by 1 week.
 We used a historical training period comprised of recent observations for each building. Business days from a sliding window of length `r fcst_train_window` days were selected as training data for each model. Using recent observations allows recent operational changes or trends to be captured in each model.
 
 If for a given 1-day ahead forecast a building had less than `r fcst_min_train_days` days of training data present it was removed from the forecast. This was to deal with buildings that had recently been included in the data set or where the data had been censored. Training a building with less than `r fcst_min_train_days` days of data sometimes resulted in severe overfitting.
-
 
 ### Error measures
 
@@ -613,7 +616,6 @@ To assess the forecasting accuracy of each of our models we use four common erro
 These are all well established forecasting metrics. Advantages and disadvantages of each are well described in @Hyndman2006-bp.
 
 When comparing these metrics in Section \@ref(forecasting-accuracy), we do find that the SSCATTR model produces the best point forecasts. To establish that this result is statistically significant we also carry out Diebold-Mariano tests against the ILR model in Section \@ref(diebold-mariano-test).
-
 
 # Results
 
@@ -635,51 +637,65 @@ For reference, Appendix \@ref(feature-selection-for-all-months) contains feature
 fs_df %>%
   select(period, month, vars) %>%
   unnest() %>%
-  mutate(selected = TRUE,
-         month = month(month, label = TRUE)) %>%
+  mutate(
+    selected = TRUE,
+    month = month(month, label = TRUE)
+  ) %>%
   spread(vars, selected, fill = FALSE) %>%
   # Ensure models with no variables selected have white squares plotted
-  right_join(list(month = unique(month(fcst_test_dates)),
-                  period = fcst_test_periods) %>%
-               cross_df() %>%
-               mutate(month = month(month, label = TRUE)),
-             by = c("month", "period")) %>%
+  right_join(list(
+    month = unique(month(fcst_test_dates)),
+    period = fcst_test_periods
+  ) %>%
+    cross_df() %>%
+    mutate(month = month(month, label = TRUE)),
+  by = c("month", "period")
+  ) %>%
   gather(vars, selected, -c(period, month)) %>%
-  mutate(selected = tidyr::replace_na(selected, FALSE),
-         vars = fct_rev(factor(vars, levels = weather_vars)),
-         season = if_else(month %in% month(c(10:12, 1:3), label = TRUE),
-                          "October-March", "April-September")) %>%
+  mutate(
+    selected = tidyr::replace_na(selected, FALSE),
+    vars = fct_rev(factor(vars, levels = weather_vars)),
+    season = if_else(month %in% month(c(10:12, 1:3), label = TRUE),
+      "October-March", "April-September"
+    )
+  ) %>%
   group_by(season, period, vars) %>%
   summarise(n_selected = sum(selected)) %>%
   ungroup() %>%
-  mutate(selected = if_else(n_selected > 0, TRUE, FALSE),
-         predictor_type = case_when(
-           str_detect(vars, "^scaled_temperature") ~ "Temperature",
-           str_detect(vars, "^scaled_wh") ~ "Demand",
-           TRUE ~ "Other"
-         )) %>%
-  filter(n_selected > 0) %>%  # don't want any fill for 0
-  ggplot(aes(x = period, y = vars, alpha = n_selected,
-             fill = predictor_type)) +
+  mutate(
+    selected = if_else(n_selected > 0, TRUE, FALSE),
+    predictor_type = case_when(
+      str_detect(vars, "^scaled_temperature") ~ "Temperature",
+      str_detect(vars, "^scaled_wh") ~ "Demand",
+      TRUE ~ "Other"
+    )
+  ) %>%
+  filter(n_selected > 0) %>% # don't want any fill for 0
+  ggplot(aes(
+    x = period, y = vars, alpha = n_selected,
+    fill = predictor_type
+  )) +
   geom_tile() +
-  theme(panel.grid.major = element_blank(),
-        panel.grid.minor = element_blank(),
-        legend.position = "right") +
-  labs(x = "Period",
-       y = "Predictor",
-       fill = "Predictor type",
-       alpha = "Number of times selected") +
+  theme(
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    legend.position = "right"
+  ) +
+  labs(
+    x = "Period",
+    y = "Predictor",
+    fill = "Predictor type",
+    alpha = "Number of times selected"
+  ) +
   facet_wrap(~season, ncol = 1) +
   scale_x_continuous(breaks = seq(8, 96, 8))
 ```
-
 
 ## Forecasting accuracy
 
 Table \@ref(tab:accuracy-results) shows the MAE, MAPE, sMAPE and MASE for each model across the entire day, during business hours (7:00 am to 7:00 pm) and during non-business hours (7:00 pm to 7:00 am). The INS models have the worst forecasting accuracy across all metrics. This is likely due to overfitting - the natural splines are too flexible for some of the buildings with the amount of data used for training. Evidence of this can be seen in Figure \@ref(fig:one-day-ahead-forecast) where erratic spikes in the predicted demand can be seen. When moving to a mixed effects model that uses natural splines the predictive accuracy is greatly improved. The SSC and SSCATTR models consistently outperform all other models. Importantly, accuracy further increases when building attributes are included as fixed effects in the SSCATTR model.
 
 Given that the SSCATTR model outperforms each of our benchmarks it seems reasonable to conclude that forecasting with mixed effects models is a reasonable practice that should be encouraged when data is available from similar subjects.
-
 
 (ref:accuracy-results) Forecasting accuracy measures for each model across the entire day, business hours (7:00 am to 7:00 pm) and non-business hours (7:00 pm to 7:00 am).
 
@@ -693,39 +709,46 @@ calculate_accuracy <- function(df, periods) {
   mase_df <- df %>%
     summarise(mae = mean(abs(resid)))
 
-  naive_mae <- mase_df %>% filter(model == "Naive") %>% pull(mae)
+  naive_mae <- mase_df %>%
+    filter(model == "Naive") %>%
+    pull(mae)
 
   mase_df <- mase_df %>%
-    mutate(mase = mae/naive_mae)
+    mutate(mase = mae / naive_mae)
 
   accuracy_df <- df %>%
-    summarise(mape = 100*mean(abs(resid/wh)),
-              smape = 200*mean(abs(resid)/(pred+wh))) %>%
+    summarise(
+      mape = 100 * mean(abs(resid / wh)),
+      smape = 200 * mean(abs(resid) / (pred + wh))
+    ) %>%
     inner_join(mase_df, by = "model")
 
   accuracy_df
 }
 
-
 tribble(
-  ~ working_hours, ~periods,
+  ~working_hours, ~periods,
   "All hours", 1:96,
   "Business hours", business_hour_periods,
-  "Non-business hours", setdiff(1:96, business_hour_periods)) %>%
+  "Non-business hours", setdiff(1:96, business_hour_periods)
+) %>%
   mutate(accuracy = map(periods, ~ calculate_accuracy(model_df, .x))) %>%
   unnest(accuracy) %>%
-  select(Model = model, MAE = mae, MAPE = mape, sMAPE = smape,
-         MASE = mase) %>%
-  knitr::kable(format = "latex",
-               booktabs = TRUE,
-               digits = 2,
-               caption = "(ref:accuracy-results)") %>%
+  select(
+    Model = model, MAE = mae, MAPE = mape, sMAPE = smape,
+    MASE = mase
+  ) %>%
+  knitr::kable(
+    format = "latex",
+    booktabs = TRUE,
+    digits = 2,
+    caption = "(ref:accuracy-results)"
+  ) %>%
   kableExtra::kable_styling() %>%
   kableExtra::group_rows("All hours", 1, 8) %>%
   kableExtra::group_rows("Business hours", 9, 16) %>%
   kableExtra::group_rows("Non-business hours", 17, 24)
 ```
-
 
 (ref:one-day-ahead-forecast-cap) One-day ahead forecasts for `r format(p_one_day_ahead_date, "%d %B, %Y")`.
 
@@ -736,21 +759,21 @@ model_df %>%
   #        fcst_date %in% (dmy("13/3/2017")+0:4)) %>%
   filter(fcst_date == p_one_day_ahead_date) %>%
   filter(bid %in% sample(unique(bid), 6)) %>%
-  mutate(ts = as_datetime(fcst_date) + minutes((period - 1)*24*60/96)) %>%
+  mutate(ts = as_datetime(fcst_date) + minutes((period - 1) * 24 * 60 / 96)) %>%
   ggplot(aes(x = ts)) +
   geom_line(aes(y = wh), colour = "black", linetype = "dashed") +
   geom_line(aes(y = pred, colour = model), alpha = 0.7) +
   facet_wrap(~bid, ncol = 2) +
-  labs(y = expression(Normalised~electricity~(Wh/m^2)),
-       x = "Date",
-       colour = "Model")
+  labs(
+    y = expression(Normalised ~ electricity ~ (Wh / m^2)),
+    x = "Date",
+    colour = "Model"
+  )
 ```
-
 
 ## Diebold-Mariano test
 
 Here we perform a one-sided Diebold-Mariano test [@Diebold2002-ru] to determine if our final model (SSCATTR) is more accurate than the baseline model (ILR). We perform a test for each period of the day (Table \@ref(tab:dm-test-periods)). When the test is applied to each period of the day we see that our SSCATTR model produces forecasts that are significantly better than the ILR model.
-
 
 (ref:dm-test-periods-cap) Diebold-Mariano test to compare forecast accuracy of ILR and SSCATTR models. Alternative hypothesis is SSCATTR model is more accurate than ILR model. All periods tested separately. Only every fourth model falling on the hour is shown for legibility.
 
@@ -763,16 +786,18 @@ model_df %>%
   spread(model, resid) %>%
   group_by(period) %>%
   nest() %>%
-  mutate(# t_test = map(data, ~ t.test(.$ILR, .$SSCATTR)),
-         # t_value = map_dbl(t_test, "statistic"),
-         # t_p_value = map_dbl(t_test, "p.value"),
-         # dm_test = map(data, ~ dm.test(.$ILR, .$SSCATTR, alternative = "two.sided")),
-         dm_test = map(data, ~ dm.test(.$ILR, .$SSCATTR,
-                                       alternative = "greater", h = 1)),
-         dm_statistic = map_dbl(dm_test, "statistic"),
-         dm_p_value = map_dbl(dm_test, "p.value")) %>%
+  mutate( # t_test = map(data, ~ t.test(.$ILR, .$SSCATTR)),
+    # t_value = map_dbl(t_test, "statistic"),
+    # t_p_value = map_dbl(t_test, "p.value"),
+    # dm_test = map(data, ~ dm.test(.$ILR, .$SSCATTR, alternative = "two.sided")),
+    dm_test = map(data, ~ dm.test(.$ILR, .$SSCATTR,
+      alternative = "greater", h = 1
+    )),
+    dm_statistic = map_dbl(dm_test, "statistic"),
+    dm_p_value = map_dbl(dm_test, "p.value")
+  ) %>%
   select(period, dm_statistic, dm_p_value) %>%
-  filter(period %in% (1:24*4)) %>%
+  filter(period %in% (1:24 * 4)) %>%
   mutate(significance = case_when(
     dm_p_value < 0.001 ~ "***",
     dm_p_value < 0.01 ~ "**",
@@ -780,14 +805,17 @@ model_df %>%
     dm_p_value < 0.1 ~ ".",
     TRUE ~ ""
   )) %>%
-  rename(Period = period, `DM statistic` = dm_statistic,
-         `P-value` = dm_p_value, Significance = significance) %>%
-  knitr::kable(format = "latex",
-               booktabs = TRUE,
-               caption = "(ref:dm-test-periods-cap)") %>%
+  rename(
+    Period = period, `DM statistic` = dm_statistic,
+    `P-value` = dm_p_value, Significance = significance
+  ) %>%
+  knitr::kable(
+    format = "latex",
+    booktabs = TRUE,
+    caption = "(ref:dm-test-periods-cap)"
+  ) %>%
   kableExtra::kable_styling()
 ```
-
 
 <!-- (ref:dm-test-all-cap) Diebold-Mariano test to compare forecast accuracy of ILR and SSCATTR models. Alternative hypothesis is SSCATTR model is more accurate than ILR model. All periods tested together. -->
 
@@ -822,8 +850,6 @@ model_df %>%
 <!--   kableExtra::kable_styling() -->
 <!-- ``` -->
 
-
-
 <!-- ## Autocorrelation in residuals -->
 
 <!-- __TODO: show a plot of ACF for SSCATTR residuals from several buildings based OR inspect the empirical autocorrelation function for the normalised residuals as recommended by Pinheiro and Bates, 1978.__ -->
@@ -833,7 +859,6 @@ model_df %>%
 <!-- Here we examine if there is any remaining signal in the residuals of the SSCATTR model.  -->
 
 <!-- __TODO:__ To do this we calculate the empirical autocorrelation function for the normalised residuals^[The normalised residuals are defined as $\mathbf{r}_i = \hat{\sigma}^{-1}(\hat{\Lambda}_i^{-\frac{1}{2}})^T(\mathbf{y}_i - \hat{\mathbf{y}}_i)$ where $\hat{\sigma}^2 \hat{\Lambda}_i$ is the estimated variance-covariance matrix for the within group errors.] [@Pinheiro1978-tg]. -->
-
 
 <!-- ```{r} -->
 <!-- bla <- model_df %>%  -->
@@ -860,15 +885,11 @@ model_df %>%
 <!--        y = "Autocorrelation") -->
 <!-- ``` -->
 
-
-
-
 ## Scenario analysis
 
 Having confirmed that our mixed models produce satisfactory predictions compared to individual provides us with justification for using them for scenario analysis. We can investigate how changing certain variable values increases or decreases energy demand in buildings. We fit the SSCATTR model on all training data before producing predictions. This is an ex-post forecasting scenario since we are using known data for our predictor variables when predicting demand.
 
 We will now show an example of producing scenario analysis for one of our buildings using this model. Building `r scenario_bid` has the attributes listed in Table \@ref(tab:attributes-scenario-bid). If any of the attribute values are modified and then the expected energy consumption is recalculated, we can take the difference between the original predictions to estimate how energy demand will change. Figure \@ref(fig:attribute-changes) shows how expected demand changes when we vary building attributes for several days in January. Figure \@ref(fig:cumulative-impact-dx) shows the cumulative change in energy consumption if the building were to switch away from using a DX system. These normalised energy savings (or increases) can then be converted to a dollar figure by simply multiplying by the net lettable area of the building and the appropriate electricity tariffs. Such an approach allows us to quantify the expected savings, both financially and in terms of energy consumption, allowing for better decision making when it comes to building management and retrofits.
-
 
 (ref:attributes-scenario-bid-cap) Building attributes for Building `r scenario_bid`.
 
@@ -878,9 +899,11 @@ main_df %>%
   select(!!building_attributes) %>%
   slice(1) %>%
   gather(Attribute, Present) %>%
-  knitr::kable(format = "latex",
-               booktabs = TRUE,
-               caption = "(ref:attributes-scenario-bid-cap)") %>%
+  knitr::kable(
+    format = "latex",
+    booktabs = TRUE,
+    caption = "(ref:attributes-scenario-bid-cap)"
+  ) %>%
   kableExtra::kable_styling()
 ```
 
@@ -893,21 +916,24 @@ p_data <- model_df %>%
   filter(fcst_date %in% scenario_dates[2:4]) %>%
   unnest() %>%
   filter(bid %in% scenario_bid)
-  # TODO: Move this to the test-models script
-  # mutate(scenario = factor(scenario, labels = c("Original building", "Tenant feed included", "Switch to DX system", "Switch to electric element heating", "Switch to centralised distribution"))) %>%
+# TODO: Move this to the test-models script
+# mutate(scenario = factor(scenario, labels = c("Original building", "Tenant feed included", "Switch to DX system", "Switch to electric element heating", "Switch to centralised distribution"))) %>%
 
 ggplot() +
-  geom_line(data = p_data, aes(x = ts, y = wh),
-            colour = "grey") +
+  geom_line(
+    data = p_data, aes(x = ts, y = wh),
+    colour = "grey"
+  ) +
   geom_line(data = p_data, aes(x = ts, y = pred, colour = scenario)) +
   ylim(0, NA) +
   facet_wrap(~scenario) +
   theme(legend.position = "none") +
-  labs(y = expression(Normalised~electricity~(Wh/m^2)),
-       x = "Date",
-       colour = "Scenario")
+  labs(
+    y = expression(Normalised ~ electricity ~ (Wh / m^2)),
+    x = "Date",
+    colour = "Scenario"
+  )
 ```
-
 
 (ref:cumulative-impact-dx) Cumulative energy impact after removing DX system. We can see that the cumulative change in energy consumption steadily decreases indicating buildings without DX systems are more efficient.
 
@@ -918,35 +944,51 @@ p_df <- model_df %>%
   select(period, fcst_date, scenarios) %>%
   filter(fcst_date %in% scenario_dates) %>%
   unnest() %>%
-  filter(bid == scenario_bid,
-         scenario %in% c("original", "dxsystem")) %>%
+  filter(
+    bid == scenario_bid,
+    scenario %in% c("original", "dxsystem")
+  ) %>%
   # TODO: Move this to the test-models script
-  mutate(scenario = factor(scenario, levels = c("original", "dxsystem"),
-                           labels = scenario_vars)) %>%
+  mutate(scenario = factor(scenario,
+    levels = c("original", "dxsystem"),
+    labels = scenario_vars
+  )) %>%
   select(scenario, ts, pred) %>%
   spread(scenario, pred) %>%
-  mutate(saving = get(scenario_vars[2]) - get(scenario_vars[1]),
-  # TODO: is this saving calc correct? Should I divide by 4?
-         saving = cumsum(saving)) %>%
+  mutate(
+    saving = get(scenario_vars[2]) - get(scenario_vars[1]),
+    # TODO: is this saving calc correct? Should I divide by 4?
+    saving = cumsum(saving)
+  ) %>%
   gather(var, Wh, -ts) %>%
-  mutate(facet_row = if_else(var %in% scenario_vars, "Energy usage",
-                             "Cumulative difference"),
-         facet_row = factor(facet_row, levels = c("Energy usage",
-                             "Cumulative difference")))
+  mutate(
+    facet_row = if_else(var %in% scenario_vars, "Energy usage",
+      "Cumulative difference"
+    ),
+    facet_row = factor(facet_row, levels = c(
+      "Energy usage",
+      "Cumulative difference"
+    ))
+  )
 
 ggplot(mapping = aes(x = ts, y = Wh)) +
-  geom_line(data = p_df %>%
-              filter(var %in% scenario_vars) %>%
-              rename(scenario = var),
-            aes(colour = scenario)) +
-  geom_area(data = filter(p_df, var == "saving"), fill = ba_palette[3],
-            alpha = 0.5) +
+  geom_line(
+    data = p_df %>%
+      filter(var %in% scenario_vars) %>%
+      rename(scenario = var),
+    aes(colour = scenario)
+  ) +
+  geom_area(
+    data = filter(p_df, var == "saving"), fill = ba_palette[3],
+    alpha = 0.5
+  ) +
   facet_wrap(~facet_row, ncol = 1, scales = "free_y") +
   theme(legend.position = "bottom") +
-  labs(y = expression(Normalised~electricity~(Wh/m^2)),
-       x = "Date")
+  labs(
+    y = expression(Normalised ~ electricity ~ (Wh / m^2)),
+    x = "Date"
+  )
 ```
-
 
 # Conclusion
 
@@ -956,13 +998,11 @@ We fit models to `r n_buildings` buildings across Australia. Separate models for
 
 Finally, we included an example of using the SSCAR model for scenario analysis for one of the buildings in our data set. The expected change in electricity demand was plotted when several of the attributes were varied. The expected change in consumption over the course of one workweek when a building moved away from using a DX system allowed us to quantify the potential savings in energy. Analyses such as these have applications for decision makers and facility managers that wish to understand the effectiveness of changes in building management or potential retrofits of equipment.
 
-
 # Acknowledgements {-}
 
 This research project was supported by funding from Buildings Alive. I would like to thank Buildings Alive for making data available and their guidance in understanding commercial building equipment and behaviour. I would also like to thank the reviewers for their thorough and constructive feedback.
 
 This research was supported by use of the Nectar Research Cloud, a collaborative Australian research platform supported by the National Collaborative Research Infrastructure Strategy (NCRIS).
-
 
 # (APPENDIX) Appendix {-}
 
@@ -976,32 +1016,43 @@ Figure \@ref(fig:fs-all-periods-months) shows selected variables for all months 
 fs_df %>%
   select(period, month, vars) %>%
   unnest() %>%
-  mutate(selected = TRUE,
-         month = month(month, label = TRUE)) %>%
+  mutate(
+    selected = TRUE,
+    month = month(month, label = TRUE)
+  ) %>%
   spread(vars, selected, fill = FALSE) %>%
   # Ensure models with no variables selected have white squares plotted
-  right_join(list(month = unique(month(fcst_test_dates)),
-                 period = fcst_test_periods) %>%
-              cross_df() %>%
-              mutate(month = month(month, label = TRUE)),
-            by = c("month", "period")) %>%
+  right_join(list(
+    month = unique(month(fcst_test_dates)),
+    period = fcst_test_periods
+  ) %>%
+    cross_df() %>%
+    mutate(month = month(month, label = TRUE)),
+  by = c("month", "period")
+  ) %>%
   gather(vars, selected, -c(period, month)) %>%
-  mutate(selected = tidyr::replace_na(selected, FALSE),
-         vars = fct_rev(factor(vars, levels = weather_vars)),
-         predictor_type = case_when(
-           str_detect(vars, "^scaled_temperature") ~ "Temperature",
-           str_detect(vars, "^scaled_wh") ~ "Demand",
-           TRUE ~ "Other"
-         )) %>%
+  mutate(
+    selected = tidyr::replace_na(selected, FALSE),
+    vars = fct_rev(factor(vars, levels = weather_vars)),
+    predictor_type = case_when(
+      str_detect(vars, "^scaled_temperature") ~ "Temperature",
+      str_detect(vars, "^scaled_wh") ~ "Demand",
+      TRUE ~ "Other"
+    )
+  ) %>%
   filter(selected == TRUE) %>%
   ggplot(aes(x = period, y = vars, fill = predictor_type)) +
   geom_tile() +
   facet_wrap(~month) +
   # scale_fill_manual(values = c("white", "#3d6b78")) +
-  labs(x = "Period",
-       y = "Predictor",
-       fill = "Predictor type") +
-  theme(panel.grid.major = element_blank(),
-        panel.grid.minor = element_blank()) +
+  labs(
+    x = "Period",
+    y = "Predictor",
+    fill = "Predictor type"
+  ) +
+  theme(
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank()
+  ) +
   scale_x_continuous(breaks = seq(8, 96, 8))
 ```
