@@ -76,7 +76,7 @@ qh_path <- file.path(data_dir, "qh_2018")
 outlier_file <- file.path(data_dir, "outlier_dates_20181120.csv")
 attribute_file <- file.path(data_dir, "attributes_20181019_tidy.csv")
 building_list_file <- file.path(data_dir, "building_list_20181022.csv")
-all_data_file <- "cache/data_all_2018_sscts.RData"
+all_data_file <- "cache/main_df.RData"
 fs_df_file <- "cache/fs_df.RData"
 model_df_file <- "cache/model_df.RData"
 
@@ -126,35 +126,33 @@ if (!file.exists(all_data_file)) {
     building_list_file = building_list_file,
     business_days = TRUE
   )
+  
+  # Scale independent variables
+  main_df <- main_df %>%
+    rename_at(vars(starts_with("temperature")), ~ paste0("scaled_", .)) %>%
+    rename_at(vars(starts_with("wh_lag")), ~ paste0("scaled_", .)) %>%
+    mutate(temperature = scaled_temperature,  # keep original temperature for plotting
+           wh_lag_96 = scaled_wh_lag_96) %>%  # keep original 96 lag demand for plotting
+    mutate_at(vars(starts_with("scaled")), scale_dbl) %>%  # scale
+    select(ts, date, period, bid, wh, temperature, wh_lag_96,
+           starts_with("scaled"), !!building_attributes)
+  
+  # Filter for training and test dates only
+  dates_filter <- fcst_test_dates %>%
+    map(~ .x - days(0:fcst_train_window)) %>%
+    as_vector() %>%
+    as_date() %>%
+    unique()
+  
+  main_df <- main_df %>%
+    filter(date %in% dates_filter,
+           period %in% fcst_test_periods)
+  
   save(main_df, file = all_data_file)
 } else {
   cat("Loaded cached processed data...\n\n")
   load(all_data_file)
 }
-
-
-# Scale independent variables
-main_df <- main_df %>%
-  rename_at(vars(starts_with("temperature")), ~ paste0("scaled_", .)) %>%
-  rename_at(vars(starts_with("wh_lag")), ~ paste0("scaled_", .)) %>%
-  mutate(temperature = scaled_temperature,  # keep original temperature for plotting
-         wh_lag_96 = scaled_wh_lag_96) %>%  # keep original 96 lag demand for plotting
-  mutate_at(vars(starts_with("scaled")), scale_dbl) %>%  # scale
-  select(ts, date, period, bid, wh, temperature, wh_lag_96,
-         starts_with("scaled"), !!building_attributes)
-
-
-
-# Filter for training and test dates only
-dates_filter <- fcst_test_dates %>%
-  map(~ .x - days(0:fcst_train_window)) %>%
-  as_vector() %>%
-  as_date() %>%
-  unique()
-
-main_df <- main_df %>%
-  filter(date %in% dates_filter,
-         period %in% fcst_test_periods)
 
 
 # Filter problem data

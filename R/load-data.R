@@ -69,6 +69,9 @@ load_all_data <- function(attribute_file, qh_path, building_list_file,
     all_data <- filter_business_days(all_data, outlier_file)
   }
   
+  # anonymise
+  all_data <- select(all_data, -name)
+  
   all_data
 }
 
