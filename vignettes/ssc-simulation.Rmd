@@ -1,0 +1,373 @@
+---
+title: "SSC simulation"
+author: "Cameron Roach"
+date: "12 February 2019"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(lme4)
+library(splines)
+library(MASS)
+library(tidyverse)
+```
+
+
+# Work through Durban models
+
+## Online tutorial
+
+Use the `sleepstudy` data set as it is similar to that in Durban's paper.
+
+Following code is from [https://gist.github.com/tmalsburg/df66e6c2ab494fad83ee](https://gist.github.com/tmalsburg/df66e6c2ab494fad83ee).
+
+
+```{r}
+d <- sleepstudy
+d$Subject <- factor(rep(1:18, each=10))
+
+fm1 <- lmer(Reaction ~ Days + (Days|Subject), d)
+
+d <- rbind(sleepstudy, sleepstudy)
+d$Subject <- factor(rep(1:36, each=10))
+d$Reaction <- ifelse(d$Subject %in% 19:36, NA, d$Reaction)
+
+d$predicted <- predict (fm1, newdata=d, allow.new.levels=T)
+d$simulated <- simulate(fm1, seed=1, newdata=d[-1], re.form=NA,
+                        allow.new.levels=T)$sim_1
+
+f <- function(x, ...) {
+    plot(x, xlab="Subject", ylim=c(0, 500), ...)
+    grid()
+}
+par(mfrow=c(1,3), mar=c(4,4,1,1))
+with(d, f(tapply(Reaction,  Subject, mean), main="Original data", ylab="Reaction", xlim=c(1, 36)))
+with(d, f(tapply(predicted, Subject, mean), main="Predicted data", ylab="", col=rep(1:2, each=18)))
+with(d, f(tapply(simulated, Subject, mean), main="Simulated data", ylab="", col=rep(1:2, each=18)))
+legend("bottomright", pch=c(1,1), col=1:2, c("old subjects", "new subjects"), bg="white")
+
+x <- with(d, as.matrix(tapply(Reaction,  list(Subject, Days), mean), ncol=9))
+y <- with(d, as.matrix(tapply(predicted, list(Subject, Days), mean), ncol=9))
+z <- with(d, as.matrix(tapply(simulated, list(Subject, Days), mean), ncol=9))
+
+f <- function(xlab="Day", ...) {
+    plot(c(1, 10), c(0, 500), ylab="Raction", xlab=xlab, t="n", ...)
+    grid()
+}
+par(mfrow=c(2,3), mar=c(4,4,1,1))
+
+f(main="Original data", "")
+for (i in 1:18)
+  lines(x[i,])
+f(main="Predicted data, old subjects", "")
+for (i in 1:18)
+  lines(y[i,])
+f(main="Predicted data, new subjects", "")
+for (i in 19:36)
+  lines(y[i,], col="red")
+f(main="Original data")
+for (i in 1:18)
+  lines(x[i,])
+f(main="Simulated data, old subjects")
+for (i in 1:18)
+  lines(z[i,])
+f(main="Simulated data, new subjects")
+for (i in 19:36)
+  lines(z[i,], col="red")
+legend("bottomright", lty=c(1,1), col=1:2, c("old subjects", "new subjects"), bg="white")
+```
+
+
+## Durban random slope
+
+This is equation (5) from Durban's paper.
+
+First fit a linear mixed model.
+
+```{r}
+sleep.df <- sleepstudy %>% 
+  rename_all(tolower) %>% 
+  as_tibble()
+
+sleep.df %>% 
+  ggplot(aes(x = days, y = reaction, colour = subject)) +
+  geom_line() +
+  theme(legend.position = "none")
+
+sleep.lmer <- lmer(reaction ~ days + (days|subject), sleep.df)
+```
+
+Use the variance-covariance matrix from this model to simulate data.
+
+```{r}
+m <- 100
+var_cov_a <- as.matrix(Matrix::bdiag(VarCorr(sleep.lmer)))
+A <- mvrnorm(m, mu = c(0, 0), 
+             Sigma = var_cov_a) %>% 
+  as_tibble() %>% 
+  # rename(a1 = `(Intercept)`, a2 = days) %>% 
+  rename_all(vars(paste0("a", 1:2))) %>% 
+  mutate(subject = factor(1:m))
+beta <- sleep.lmer@beta
+sigma_e <- summary(sleep.lmer)$sigma
+
+sim.df <- tibble(
+  days = rep(0:9, m),
+  subject = factor(rep(1:m, each=10))
+) %>% 
+  inner_join(A, by = "subject") %>% 
+  mutate(eps = rnorm(n(), 0, sigma_e),
+         reaction = beta[1] + beta[2]*days + a1 + a2*days + eps,
+         data_type = "simulated")
+
+sleep.df %>%
+  mutate(data_type = "original") %>%
+  bind_rows(sim.df) %>%
+  ggplot(aes(x = days, y = reaction, group = subject)) +
+  geom_line(size = 0.2) +
+  facet_wrap(~data_type)
+
+sim.lmer <- lmer(reaction ~ days + (days|subject), sim.df)
+
+cat("Var-Cov matrix model fitted to original data\n")
+as.matrix(Matrix::bdiag(VarCorr(sim.lmer)))
+cat("Var-Cov matrix model fitted to simulated data\n")
+var_cov_a
+```
+
+## Subject specific curves
+
+Now we move into the spline section of the paper.
+
+```{r}
+sleep.df <- sleepstudy %>% 
+  rename_all(tolower) %>% 
+  as_tibble()
+
+sleep.df %>% 
+  ggplot(aes(x = days, y = reaction, colour = subject)) +
+  geom_line() +
+  theme(legend.position = "none")
+
+#bs(sleep.df$days, df = 4, degree = 1) %>% as.data.frame() %>% dplyr::mutate(x = sleep.df$days) %>% gather(var, val, -x) %>% ggplot(aes(x = x, y = val, colour = var)) + geom_line()
+
+K <- 2
+
+# This includes a random intercept correlated with spline basis coefficients.
+# sleep.lmer <- lmer(
+#   reaction ~ days + (bs(days, df = K+1, degree = 1)|subject),
+#   sleep.df
+# )
+
+# This includes an uncorrelated random intercept and correlated spline coefficients. Still not quite right.
+# sleep.lmer <- lmer(
+#   reaction ~ days + (1|subject) + (bs(days, df = K+1, degree = 1) - 1|subject),
+#   sleep.df
+# )
+
+# We want correlated random intercept and slope, and uncorrelated random effects for spline basis coefficients where 
+
+sleep.formula <- reaction ~ 
+  days + (days | subject) +
+  (bs(days, df = 2, degree = 1)[,1] - 1 | subject) +
+  (bs(days, df = 2, degree = 1)[,2] - 1 | subject)
+# days + (days|subject) + (bs(days, df = K+1, degree = 1) - 1 || subject),
+# days + (days || subject),
+# days + (bs(days, df = 2, degree = 1) || subject),
+
+sleep.lmer <- lmer(sleep.formula, sleep.df)
+sleep.lmer2 <- lmer(reaction ~ days + (days | subject) + (bs(days, df = 2, degree = 1) | subject), sleep.df)
+sleep.lmer3 <- lmer(reaction ~ days + (bs(days, df = 2, degree = 1) | subject), sleep.df)
+# sleep.lmer2 <- lmer(reaction ~ days + (bs(days, df = 2, degree = 1) | subject), sleep.df)
+
+sleep.df %>%
+  mutate(prediction = predict(sleep.lmer, newdata = .),
+         prediction2 = predict(sleep.lmer2, newdata = .),
+         prediction3 = predict(sleep.lmer3, newdata = .)) %>%
+  gather(var, val, reaction, starts_with("prediction")) %>%
+  ggplot(aes(x = days, y = val, colour = var)) +
+  geom_line() +
+  facet_wrap(~subject)
+
+sleep.df %>%
+  mutate(prediction = predict(sleep.lmer, newdata = .),
+         prediction2 = predict(sleep.lmer2, newdata = .),
+         prediction3 = predict(sleep.lmer3, newdata = .)) %>%
+  gather(var, val, starts_with("prediction")) %>% 
+  mutate(e = val - reaction) %>% 
+  group_by(var) %>% 
+  summarise(mean(abs(e)))
+```
+
+
+```{r}
+m <- 10000
+var_cov_a <- as.matrix(Matrix::bdiag(VarCorr(sleep.lmer)))
+A <- mvrnorm(m, mu = rep(0, dim(var_cov_a)[1]), 
+             Sigma = var_cov_a) %>% 
+  as_tibble() %>% 
+  # rename(a1 = `(Intercept)`, a2 = days) %>% 
+  # rename_at(vars(paste0("a", 1:(K+2))), ~col.to) 
+  rename_all(vars(paste0("a", 1:(K+2)))) %>% 
+  mutate(subject = factor(1:m))
+beta <- sleep.lmer@beta
+sigma_e <- summary(sleep.lmer)$sigma
+
+sim.df <- tibble(
+  days = rep(0:9, m),
+  subject = factor(rep(1:m, each=10))
+) %>% 
+  inner_join(A, by = "subject") %>% 
+  mutate(eps = rnorm(n(), 0, sigma_e),
+         reaction = beta[1] + beta[2]*days + a1 + a2*days + eps,
+         data_type = "simulated")
+
+# sleep.df %>%
+#   mutate(data_type = "original") %>%
+#   bind_rows(sim.df) %>%
+#   ggplot(aes(x = days, y = reaction, group = subject)) +
+#   geom_line(size = 0.2) +
+#   facet_wrap(~data_type)
+
+sim.lmer <- lmer(sleep.formula, sim.df)
+
+cat("Var-Cov matrix model fitted to original data\n")
+as.matrix(Matrix::bdiag(VarCorr(sim.lmer)))
+cat("Var-Cov matrix model fitted to simulated data\n")
+var_cov_a
+```
+
+
+
+# Are coefficients for splines correlated?
+
+When knot placement can differ.
+
+```{r}
+fit.df <- sim.df %>% 
+  group_by(subject) %>% 
+  nest() %>% 
+  mutate(fit = map(data, ~ lm(reaction ~ bs(days, 3, degree=1), .x)),
+         coef = map(fit, ~ .x$coefficients))
+
+fit.df %>% 
+  mutate(coef = map(coef, ~as.data.frame(t(.x)))) %>% 
+  dplyr::select(coef) %>% 
+  unnest(coef) %>% 
+  cor()
+```
+
+
+When knot placement is the same.
+
+__TODO:__ Need to experiment with subjects that have different domains for predictor variable.
+
+```{r}
+knots_x <- quantile(sim.df$days, (1:(K+1))/(K+1))[1:K]
+
+fit.df <- sim.df %>% 
+  group_by(subject) %>% 
+  nest() %>% 
+  mutate(fit = map(data, ~ lm(reaction ~ bs(days, knots = knots_x, degree=1), .x)),
+         coef = map(fit, ~ .x$coefficients))
+
+fit.df %>% 
+  mutate(coef = map(coef, ~as.data.frame(t(.x)))) %>% 
+  dplyr::select(coef) %>% 
+  unnest(coef) %>% 
+  cor()
+```
+
+```{r}
+simple.lmer <- lmer(reaction ~ (bs(days, 3, degree=1)|subject), sim.df)
+# summary(simple.lmer)
+attr(summary(simple.lmer)$varcor$subject, "correlation")
+```
+
+
+
+
+# Simulate electricity data
+
+```{r}
+
+m <- 100  # number subjects
+n <- 200  # observations per subject
+K <- 2  # number of knots
+
+
+sigma_v <- 0.1
+sigma_e <- 1
+# sigma_A <- matrix(rnorm(3^2)*2-1, 3)
+# sigma_A <- t(sigma_A) %*% sigma_A
+sigma_A <- v3  # from lmer-predictions.Rmd
+K <- ncol(sigma_A)-1
+mvrnorm(1000, mu = rep(0, K+1), Sigma = sigma_A) %>% cor()
+
+# mvrnorm(n = m,
+#         mu = c(0, 0),
+#         Sigma = sigma_A,
+#         empirical=FALSE) %>% 
+#   as_tibble() %>% 
+#   ggplot(aes(x = V1, y = V2)) + 
+#   geom_point()
+
+
+data_list <- list()
+for (i in 1:m) {
+  x <- rnorm(n)
+  A <- mvrnorm(1, mu = rep(0, K+1), Sigma = sigma_A)
+  A <- matrix(A, ncol = 1)
+  basis <- ns(x, K+1)
+  beta <- rnorm(K+1, sd = sigma_v)
+  
+  # y <- matrix(c(rep(1, n), x, x^2, x^3), ncol = K+1) %*% A + basis %*% beta + rnorm(n, sd = sigma_e)
+  y <- cbind(rep(1, n), poly(x, 3, raw = TRUE)) %*% A + 
+    basis %*% beta + rnorm(n, sd = sigma_e)
+  y <- as.numeric(y)
+  
+  data_list[[i]] <- tibble(
+    subject = i,
+    x = x,
+    y = y,
+    beta = list(beta)
+  )
+}
+
+mixed_df <- bind_rows(data_list) %>% 
+  mutate(subject = factor(subject))
+```
+
+```{r}
+mixed_df %>%
+  filter(subject %in% sample(unique(subject), 9)) %>%
+  ggplot(aes(x = x, y = y, colour = subject)) +
+  geom_point(shape = "o") +
+  geom_smooth(se = FALSE) +
+  facet_wrap(~subject) +
+  theme(legend.position = "none")
+
+mixed_df %>%
+    ggplot(aes(x = x, y = y)) +
+    geom_smooth(aes(colour = subject), se = FALSE, size = 0.2) +
+    geom_smooth(se = FALSE) +
+    theme(legend.position = "none")
+```
+
+
+```{r}
+replicate(100, map(beta_means, ~ rnorm(1, .x)))
+```
+
+
+
+# Check model fit
+
+
+
+
+
+
+

@@ -1,0 +1,117 @@
+---
+title: "lmer predictions"
+author: "Cameron Roach"
+date: "12/02/2019"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+# load main_df
+# make sure scaled variables have been created
+
+fcst_date <- fcst_test_dates[8]
+fcst_period <- 24
+train_window <- 60
+min_train_days <- 15
+
+train_df <- main_df %>% 
+  filter(date < fcst_date,
+         date > fcst_date - train_window,
+         period == fcst_period)
+
+bid_filter <- train_df %>% 
+  count(bid) %>% 
+  filter(n < min_train_days) %>% 
+  pull(bid)
+
+train_df <- filter(train_df, !(bid %in% bid_filter))
+
+test_df <- main_df %>% 
+  filter(date == fcst_date,
+         period == fcst_period,
+         bid %in% unique(train_df$bid))  # need same levels
+
+# Add models we wish to fit here
+model_df <- list(ind_lm = fit_ind_lm(train_df),
+                 ind_ns = fit_ind_ns(train_df),
+                 ri = fit_ri(train_df),
+                 ris = fit_ris(train_df),
+                 ssc = fit_ssc(train_df)) %>% 
+  map(list) %>% 
+  as_tibble() %>% 
+  gather(model, fit)
+
+
+ssc <- model_df %>% filter(model == "ssc") %>% pull(fit) %>% .[[1]]
+```
+
+
+
+If `ssc` is one of the models, then
+
+```{r}
+pred_auto <- predict(ssc, train_df)
+head(pred_auto)
+```
+
+
+Is the same as this
+
+```{r}
+pred_man <- getME(ssc, "Z") %*% matrix(getME(ssc, "b"), ncol = 1) + getME(ssc, "X") %*% matrix(fixef(ssc), ncol = 1)
+pred_man <- as.numeric(pred_man[,1])
+head(pred_man)
+```
+
+```{r}
+table(as.numeric(pred_auto == pred_man))
+```
+
+Looking at the conditional mode of the random effects variable
+
+```{r}
+v <- matrix(getME(ssc, "b"), ncol = 4, byrow = TRUE)
+head(v)
+```
+
+we can see that each element of the spline basis gets its own coefficient estimated.
+
+
+# Variance-covariance matrices
+
+This explains how the variance is calculated manually: [https://stats.stackexchange.com/questions/68106/understanding-the-variance-of-random-effects-in-lmer-models](https://stats.stackexchange.com/questions/68106/understanding-the-variance-of-random-effects-in-lmer-models).
+
+```{r}
+v1 <- cov(v)
+# v1
+
+# library(arm)
+# U <- nrow(ranef(ssc)$bid)
+# se_ranef <- se.ranef(ssc)$bid
+# 1/128 * sum(se_ranef[,1]^2)  # intercept only
+# v2 <- 1/U * (t(se_ranef) %*% se_ranef)
+
+
+# Sum each variance-covariance matrix for each building's random effects
+# Divide by number of buildings and add to the other variance component.
+vars.m <- attr(ranef(ssc, condVar = TRUE)$bid, "postVar")
+v2 <- 1/U * apply(vars.m, c(1, 2), sum)
+
+v1 + v2
+```
+
+```{r}
+# getME(ssc, "lambda")
+v3 <- as.matrix(Matrix::bdiag(VarCorr(ssc)))
+rownames(v3) <- NULL
+colnames(v3) <- NULL
+v3
+```
+
+```{r}
+(v1+v2-v3)/v3
+```
+
+So I can use this estimated variance-covariance structure to simulate data in my other vignette. Should get simulated data that looks like the real thing.

@@ -1,0 +1,121 @@
+---
+title: "Subsampling for mixed models"
+author: "Cameron Roach"
+date: "7 January 2019"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(tidyverse)
+library(lme4)
+
+set.seed(3)
+```
+
+__TODO:__ Create a function that takes the data generating function and formula for lmer and outputs the required dataframe.
+__TODO:__ Heatmaps of # subjects and fraction of data. Separate plots for MSE and Time.
+__TODO:__ Also look at a line plot of computation time vs accuracy for a given number of subjects.
+
+
+We want to investigate how good sfitting results are when subsampling training data from different individuals. We will look at a random intercept (RI) linear mixed effects model.
+
+## Data
+
+Our data generating function for subject $i$ is
+
+$$
+y_{ij} = (x_{ij}-0.3)^2 + U_i + \epsilon_{ij},
+$$
+
+where $x_{ij}\sim U(0,1)$, $U_i \sim N(0, 1)$ and $\epsilon_{ij} \sim N(0, 0.05)$.
+
+```{r}
+n <- 100
+n_subjects <- 9
+
+df = data_frame(subject = 1:n_subjects) %>% 
+  mutate(x = map(subject, ~ runif(n, 0, 1)),
+         # y = map(x, ~ .x + rnorm(1) + rnorm(n, 0, 0.05))) %>% 
+         y = map(x, ~ (.x-0.3)^2 + rnorm(1) + rnorm(n, 0, 0.05))) %>% 
+         # y = map(x, ~ .x^2 + rnorm(1) + rnorm(n, 0, 0.05))) %>% 
+  unnest()
+
+
+df %>% 
+  ggplot(aes(x, y, colour = factor(subject))) + geom_point()
+```
+
+
+## Subsetting data
+
+We will
+
+* Train on all data
+* Train on 90%, 80%, ... 10% randomly sampled data
+* Train on a very small sample of data (3 or so points per subject)
+
+```{r}
+train_df = #data_frame(frac = c(6/(n*n_subjects), 0.1, 0.5, 1)) %>%
+  data_frame(frac = c(0.02, 0.1, 0.5, 1)) %>% 
+  mutate(train = map(frac, ~ df %>% group_by(subject) %>% sample_frac(.x)),
+         # fit = map(train, function(df) lmer(y ~ x + (1 | subject), data = df)),
+         # fit = map(train, function(df) lmer(y ~ poly(x, 2) + (1 | subject), data = df)),
+         fit = map(train, function(df) lmer(y ~ x + I(x^2) + (1 | subject), data = df)),
+         # predict = map2(fit, train, ~ predict(.x, .y)))
+         predict = map(fit, ~ predict(.x, df)))
+
+
+train_df %>% 
+  mutate(data = list(df)) %>% 
+  unnest(data, predict) %>% 
+  ggplot(aes(x = x, colour = factor(frac))) + 
+  geom_line(aes(y = predict)) +
+  # geom_point(aes(y = y)) +
+  facet_wrap(~subject)
+```
+
+```{r}
+train_df %>% 
+  mutate(coef = map(fit, ~ coef(.x)$subject %>% as_data_frame(rownames = "subject"))) %>% 
+  unnest(coef) %>% 
+  gather(parameter, estimate, -c(frac, subject)) %>% 
+  ggplot(aes(x = factor(frac), y = estimate)) +
+  geom_boxplot() +
+  facet_wrap(~parameter)
+```
+
+What happens if we go beyond the training domain? Based on the above coefficient estimates I'm expecting bad stuff.
+
+```{r}
+train_df %>% 
+  mutate(df = list(data_frame(subject = rep(1:n_subjects, each = 100),
+                              x = rep(seq(-10, 10, length.out = 100), n_subjects))),
+         predict = map2(fit, df, ~ predict(.x, .y))) %>% 
+  unnest(predict, df) %>% 
+  ggplot(aes(x = x, colour = factor(frac))) + 
+  geom_line(aes(y = predict)) +
+  # geom_point(aes(y = y)) +
+  facet_wrap(~subject)
+```
+
+
+### Observations
+
+* With a low number of subjects and very low number of training samples (e.g. 3 subjects and 6 training points in total) you can sometimes get predictions that are way off. This is caused by the $x$ training samples being close to each other, and so a good polynomial can not be estimated. However, if the $x$ samples weren't randomly selected and were instead evenly spaced I suspect this problem would be alleviated.
+* When more individuals are present the $x$ and $y$ relationship can be well estimated even when the number of training samples is absurdly low. However, the estimates for the random effects can be a bit less reliable.
+* Parameter estimates obviously are a bit uncertain when there is almost no data. But pretty ok.
+
+## Computational time
+
+Use microbenchmark 100 or so times to check computational times for each of these methods.
+
+
+## Thoughts
+
+* In a way this is just like SGD but stopping early before all data is used. The critical difference is based on how data is selected. Data is selected randomly for each subject, but we ensure that each subject is represented equally, i.e., the same number of data points are used for training for each subject. So in a way, this is just a variation of SGD specially designed for linear mixed models which allows us to stop early. Rather than simply saying that we only want to use, say, 10% of the available data, we can keep selecting points from each subject until a stopping condition is reached. These stopping conditions can include:
+    + The change in parameter estimates is below a given threshold.
+    + The number of training points per subject reaches a given threshold.
+    + The number of parameter updates/iterations reaches a given threshold.
+* Need to investigate how `lme4` fits models. Does it already do something like this, i.e., selects a training point from one subject, then the next subject, and so on before returning to the first subject and continuing cyclically?

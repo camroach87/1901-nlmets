@@ -1,0 +1,56 @@
+---
+title: "Structuring model data frame"
+author: "Cameron Roach"
+date: "21/01/2019"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+After loading all the data, it becomes apparent that we can't store the training and test sets in a tibble due to the absurd size. If we
+
+* Filter for 1% of the data
+* Only look at one day forecasts for January
+* Only use a training window of 30 days
+
+We still wind up with an object that uses over 27 Gb of memory.
+
+```{r}
+get_train_df <- function(date, period, window=30) {
+  main_df %>% 
+    filter(date < date,
+           date > date - window,
+           period == period)
+}
+
+get_test_df <- function(date, period) {
+  main_df %>% 
+    filter(date == date,
+           period == period)
+}
+
+main_df <- main_df %>% 
+  group_by(bid, period) %>% 
+  sample_frac(fit_frac) %>% 
+  ungroup()
+  
+model_df <- list(period = 1:96,
+                 fcst_date = fcst_test_dates) %>% 
+  cross_df() %>% 
+  mutate(fcst_date = as_date(fcst_date)) %>% 
+  mutate(train_df = map2(fcst_date, period, get_train_df),
+         test_df = map2(fcst_date, period, get_test_df))
+
+format(object.size(model_df), "Gb")
+```
+
+
+I will need to create and delete test data frames whenever fitting a model. Process should be:
+
+1. For a given forecast date, filter `main_df` to obtain the test and training data sets.
+2. Fit all models (RI, RIS, SSC, SSCAR1) to the training set.
+3. Calculate predictions and error measures on the test data set.
+4. Repeat the process for all one-day ahead forecast dates.
+

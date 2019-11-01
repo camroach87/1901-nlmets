@@ -1,0 +1,307 @@
+---
+title: "Feature selection and formula generation"
+author: "Cameron Roach"
+date: "20/02/2019"
+output: html_document
+---
+
+## Creating formulas
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+rm(list=ls())
+
+library(tidyverse)
+library(lme4)
+library(splines)
+```
+
+
+```{r}
+f <- wh ~ poly(s_temperature, 2) + (1|bid)
+```
+
+Don't use `all.vars`. Only shows the predictor variables and not how they are included in the formula (e.g. the mixed effect notation disappears).
+
+```{r}
+all.vars(f)
+```
+
+The `as.character` method for formula class seems to do a better job.
+
+```{r}
+as.character(f)[[3]]
+```
+
+Better yet, include all the predictors as strings in a vector.
+
+```{r}
+predictor_vars <- c("poly(s_temperature, 2)", "(1 | bid)")
+response_var <- quote(log(wh))
+
+predictor_vars
+response_var
+
+reformulate(predictor_vars, response_var)
+
+
+formula(paste("log(wh) ~", paste(predictor_vars, collapse="+")))
+```
+
+For `iris`:
+
+```{r}
+predictor_vars <- c("ns(Petal.Width, 3)", "ns(Petal.Length, 3)", "(1|Species)")
+response_var <- "Sepal.Length"
+formula <- reformulate(predictor_vars, response_var)
+lmer(formula, data = iris)
+```
+
+Sticking with the `iris` example we can create all the different formula variations.
+
+The `dv` matrix shows which variables are dropped. The first row corresponds to all variables being included in the model.
+
+__TODO: See FIXME below__
+
+```{r}
+dv <- 1 - diag(1, length(predictor_vars))
+dv <- rbind(rep(1, ncol(dv)), dv)
+
+# FIXME: fix so that every formula has at least one random effect term. Otherwise lmer will throw an error.
+#        Can do my just adding in an extra column for random intercept which must always be included.
+#        Put random intercept in a different variable from predictor_vars.
+dv <- dv[1:3,]
+
+mdl_df <- tibble(idx = 1:nrow(dv)) %>% 
+  mutate(terms = map_chr(idx, ~ paste(predictor_vars[as.logical(dv[., ])], 
+                                      collapse = " ")),
+         formula = map(idx, ~ reformulate(predictor_vars[as.logical(dv[., ])],
+                                          response_var)),
+         fit = map(formula, ~ lmer(., data = iris)),
+         aic = map_dbl(fit, ~ AIC(.)))
+```
+
+Obviously instead of calculating the AIC score I'll look at MAPE. Need to do cross-validation on this data.
+
+__Update:__ Here is a more elegant way to create all formulas using a tidy framework.
+
+```{r}
+# Make sure at least one random effect term included to prevent lme4 breaking
+regex_filter.lmer <- "^\\({1}[[:alnum:]._-]+\\|{1}[[:alnum:]._-]+\\){1}$"
+
+predictor_vars %>%
+  map(~ c(TRUE, FALSE)) %>% 
+  set_names(predictor_vars) %>% 
+  cross_df() %>% 
+  filter_at(vars(matches(regex_filter.lmer)), any_vars(.!=FALSE)) %>% 
+  rownames_to_column("id") %>% 
+  nest(-id, .key = "terms") %>%  # feature matrix
+  mutate(terms = map(terms, ~ predictor_vars[as.logical(.)]),
+         formula = map(terms, ~ reformulate(., response_var)),
+         fit = map(formula, ~ lmer(., data = iris)),
+         aic = map_dbl(fit, ~ AIC(.))) %>% 
+  select(-id)
+```
+
+
+
+
+
+
+## Cross-validation
+
+I'm already doing rolling one-day ahead forecasts. I don't need another CV step!!!
+
+Simply create all the formulas/models I want to test and carry out the rolling forecasts for each of these models. Then after that has been done select the best model from within each model class.
+
+
+## What's going on with the ns terms?
+
+Note cubic spline function only generates the bases. Ther are no linear, quadratic and cubic non-basis terms, i.e. x, x^2^ and x^3^. Only the basis is generated. We can see that this gives the correct fit below.
+
+```{r}
+spline_basis <- ns(iris$Petal.Width, 3)
+# spline_basis <- bs(iris$Petal.Width, 3, degree = 1)
+iris.fit <- lm(iris$Sepal.Length ~ spline_basis, data = iris)
+iris.coef <- coef(iris.fit)
+
+sweep(spline_basis, MARGIN=2, iris.coef[2:length(iris.coef)],`*`) %>% 
+  as.data.frame() %>% 
+  mutate(spline = rowSums(.) + iris.coef[1],
+         x = iris$Petal.Width) %>% #, sum = `1` + `2` + `3` + iris.coef[1]) %>% 
+  gather(var, val, -x) %>% 
+  ggplot(aes(x = x, y = val, colour = var)) + 
+  geom_line() + 
+  geom_point(aes(x = Petal.Width, y = Sepal.Length),
+             data = iris,
+             colour = "black")
+```
+
+
+
+
+## Final feature selection approach
+
+Having had a think I should:
+
+1. Load the main dataframe having used tsibble to fill blanks and add lags.
+2. Define all predictors and response. ~~DON'T add transformations to either. Just use names of variables.~~ __DO__ add transformations since `recipes` won't be used.
+3. Create all combinations of model formulation. ~~Again - no transformations for variables.~~ These combinations should be ordered such that:
+    + Most complicated model is first
+    + Least complicated model is last
+    + Lagged variables are included in order of length of lag
+    + There needs to be some way to indicate that lags belong to a group so that once a certain lag is dropped from the model and forecasts don't improve, the feature selection moves to the next group of lags.
+4. Once I've worked out the variables to be used I'll need to manually create the formulas using `paste0` and `as.formula`.
+
+
+__Note:__ Can't use `recipes` as it isn't set up for mixed models. So can't do the following steps:
+
+4. Create a `recipe` and define transformations (log of response and natural splines for predictors) here.
+5. `prep` the recipe using the training data so that the test data uses the same paramters for splines.
+
+### Step 3
+
+I should focus on adding and removing variables from the formula. I should give the order that each variable is removed, and groups that I can easily jump through should a lag not be removed. This can be stored in a table. For example:
+
+predictor | predictor_group
+----------|-------------------
+(ns(temp_lag2, 3)|bid) | temp
+(ns(temp_lag2, 3)|bid) | temp
+(ns(temp, 3)|bid)      | temp
+(ns(temp_max, 3)|bid)  | temp_max
+(ns(temp_avg, 3)|bid)  | temp_avg
+
+So I'll start with a model with all predictors in the formula, fit it, and then commence removing variables from one _predictor group_ at a time.
+
+__Note:__ I originally thought that the following approach might work. However, it doesn't work because I already predefine formulas for unlagged terms and they do not include the lags that I might have found to be useful. See below for info.
+
+In step 3 I'll need a dataframe. Something that looks like
+
+formula | predictor_group
+--------|--------------
+wh ~ temp_max + temp_avg + temp + temp_lag1 + temp_lag2 | temp
+wh ~ temp_max + temp_avg + temp + temp_lag1 | temp
+wh ~ temp_max + temp_avg + temp | temp
+wh ~ temp_max + temp_avg | temp
+wh ~ temp_max | temp_avg
+
+Nope! This won't work because when removing lags I don't know which will remain. Hence, I can't specify a formula in terms of temp_avg or temp_max. You can see above I've just tried removing temp_avg to see if it improves/worsens forecasts, but I have no idea what lag to include.
+
+
+```{r}
+f <- formula(paste("log(wh) ~", paste0(predictors, collapse = " + ")))
+
+# fs_df <- 
+tibble(predictor = predictors) %>% 
+  mutate(term = paste0("(ns(", predictor, ", df = 3)|bid)"),
+         predictor_group = str_extract(predictor, "$[[:alpha:]_]+[^_[:digit:]]"))
+```
+
+
+
+### Code
+
+After loading `main_df`
+
+
+```{r}
+source("../R/feature-selection.R")
+source("../R/scores.R")
+
+feature_grid_ssc <- tribble(
+  ~ predictor, ~ group, ~ lag,
+  "scaled_temperature", "temperature", 0,
+  "scaled_temperature_lag_4", "temperature", 4,
+  "scaled_temperature_lag_8", "temperature", 8,
+  "scaled_temperature_lag_12", "temperature", 12,
+  "scaled_temperature_lag_24", "temperature", 24,
+  "scaled_temperature_lag_48", "temperature", 48,
+  "scaled_temperature_lag_72", "temperature", 72,
+  "scaled_temperature_lag_96", "temperature", 96,
+  "scaled_temperature_lag_192", "temperature", 192,
+  "scaled_temperature_lag_288", "temperature", 288,
+  "scaled_temperature_max", "temperature_max", NA,
+  "scaled_temperature_min", "temperature_min", NA,
+  "scaled_temperature_avg", "temperature_avg", NA  # ,
+  # "(1|bid)", "random_intercept", NA
+) %>% 
+  mutate(predictor = if_else(str_detect(predictor, "^scaled_temperature"),
+                             # paste0("(ns(", predictor, ", df = 2)|bid)"),
+                             # paste0("(ns(", predictor, ", df = 3)|bid)"),
+                             paste0("(", predictor, "|bid)"),
+                             predictor))
+
+
+feature_grid_pool <- tribble(
+  ~ predictor, ~ group, ~ lag,
+  "scaled_temperature", "temperature", 0,
+  "scaled_temperature_lag_4", "temperature", 4,
+  "scaled_temperature_lag_8", "temperature", 8,
+  "scaled_temperature_lag_12", "temperature", 12,
+  "scaled_temperature_lag_24", "temperature", 24,
+  "scaled_temperature_lag_48", "temperature", 48,
+  "scaled_temperature_lag_72", "temperature", 72,
+  "scaled_temperature_lag_96", "temperature", 96,
+  "scaled_temperature_lag_192", "temperature", 192,
+  "scaled_temperature_lag_288", "temperature", 288,
+  "scaled_temperature_max", "temperature_max", NA,
+  "scaled_temperature_min", "temperature_min", NA,
+  "scaled_temperature_avg", "temperature_avg", NA,
+  "bid", "bid", NA
+) # %>% 
+  # mutate(predictor = if_else(str_detect(predictor, "^scaled_temperature"),
+  #                            #paste0("ns(", predictor, ", df = 3)"),
+  #                            predictor))
+
+
+# feature_grid_ris <- tribble(
+#   ~ predictor, ~ group, ~ lag,
+#   "scaled_temperature", "temperature", 0,
+#   "scaled_temperature_lag_4", "temperature", 4,
+#   "scaled_temperature_lag_8", "temperature", 8,
+#   "scaled_temperature_lag_12", "temperature", 12,
+#   "scaled_temperature_lag_24", "temperature", 24,
+#   "scaled_temperature_lag_48", "temperature", 48,
+#   "scaled_temperature_lag_72", "temperature", 72,
+#   "scaled_temperature_lag_96", "temperature", 96,
+#   "scaled_temperature_lag_192", "temperature", 192,
+#   "scaled_temperature_lag_288", "temperature", 288,
+#   "scaled_temperature_max", "temperature_max", NA,
+#   "scaled_temperature_min", "temperature_min", NA,
+#   "scaled_temperature_avg", "temperature_avg", NA,
+#   "(1|bid)", "bid", NA,
+#   "(scaled_temperature|bid)", "bid", NA
+# ) %>% 
+#   mutate(predictor = if_else(str_detect(predictor,  "^scaled_temperature"),
+#                              paste0("ns(", predictor, ", df = 3)"),
+#                              predictor))
+
+
+fcst_date <- fcst_test_dates[1]
+fcst_period <- fcst_test_periods[2]
+train_window <- 60
+min_train_days <- 5
+
+train_df <- main_df %>% 
+    filter(date < fcst_date,
+           date > fcst_date - train_window,
+           period == fcst_period)
+  
+bid_filter <- train_df %>% 
+  count(bid) %>% 
+  filter(n < min_train_days) %>% 
+  pull(bid)
+
+train_df <- filter(train_df, !(bid %in% bid_filter))
+
+test_df <- main_df %>% 
+  filter(date == fcst_date,
+         period == fcst_period,
+         bid %in% unique(train_df$bid))
+
+feature_selection(train_df, test_df, feature_grid_pool, score_mae, lambda = 0.001)
+# feature_selection(train_df, test_df, feature_grid_ris, score_mae, lambda = 0.001)
+feature_selection(train_df, test_df, feature_grid_ssc, score_mae, lambda = 0.001)
+```
+
