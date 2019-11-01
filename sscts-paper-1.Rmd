@@ -1,5 +1,5 @@
 ---
-title: "Subject specific curves for times series forecasting of smart meter demand"
+title: "Subject specific curves for time series forecasting of smart meter demand"
 author: "Cameron Roach^[Corresponding author. E-mail address: cameron.roach@monash.edu (C. Roach).]"
 fontsize: 11pt
 papersize: a4
@@ -147,19 +147,19 @@ main_df <- main_df %>%
 
 
 # Filter for training and test dates only
-dates_filter <- fcst_test_dates %>% 
-  map(~ .x - days(0:fcst_train_window)) %>% 
-  as_vector() %>% 
-  as_date() %>% 
+dates_filter <- fcst_test_dates %>%
+  map(~ .x - days(0:fcst_train_window)) %>%
+  as_vector() %>%
+  as_date() %>%
   unique()
 
-main_df <- main_df %>% 
+main_df <- main_df %>%
   filter(date %in% dates_filter,
          period %in% fcst_test_periods)
 
 
 # Filter problem data
-main_df <- main_df %>% 
+main_df <- main_df %>%
   filter(!(bid == "BID0059" & year(date) == 2017 & month(date) %in% 6:7))  # flat readings
 
 
@@ -174,12 +174,12 @@ if (!file.exists(fs_df_file)) {
       "candidate predictors...\n\n")
   start_time <- Sys.time()
   fs_df <- list(month = unique(month(fcst_test_dates)),
-                period = fcst_test_periods) %>% 
-    cross_df() %>% 
+                period = fcst_test_periods) %>%
+    cross_df() %>%
     mutate(fs_date = map(month,
-                         ~ min(fcst_test_dates[month(fcst_test_dates) == .x]))) %>% 
-    unnest() %>% 
-    mutate(features = future_map2(fs_date, 
+                         ~ min(fcst_test_dates[month(fcst_test_dates) == .x]))) %>%
+    unnest() %>%
+    mutate(features = future_map2(fs_date,
                                   period,
                                   select_features,
                                   train_window = fcst_train_window,
@@ -195,10 +195,10 @@ if (!file.exists(fs_df_file)) {
 }
 
 fs_df <- fs_df %>%
-  mutate(vars = map(features, ~ .x %>% 
-                      # filter(bic == min(bic)) %>% 
-                      filter(loocv == min(loocv)) %>% 
-                      pull(vars) %>% 
+  mutate(vars = map(features, ~ .x %>%
+                      # filter(bic == min(bic)) %>%
+                      filter(loocv == min(loocv)) %>%
+                      pull(vars) %>%
                       unlist()))
 
 
@@ -206,18 +206,18 @@ fs_df <- fs_df %>%
 if (!file.exists(model_df_file)) {
   cat("Fitting models...\n\n")
   start_time <- Sys.time()
-  
+
   model_df <- list(period = fcst_test_periods,
-                   fcst_date = fcst_test_dates) %>% 
-    cross_df() %>% 
-    mutate(fcst_date = as_date(fcst_date)) %>% 
-    mutate(fit_results = future_map2(fcst_date, period, test_models, 
+                   fcst_date = fcst_test_dates) %>%
+    cross_df() %>%
+    mutate(fcst_date = as_date(fcst_date)) %>%
+    mutate(fit_results = future_map2(fcst_date, period, test_models,
                                      scenario_dates = scenario_dates,
                                      train_window = fcst_train_window,
                                      min_train_days = fcst_min_train_days,
-                                     .progress = TRUE)) %>% 
+                                     .progress = TRUE)) %>%
     unnest(fit_results)
-  
+
   print(Sys.time() - start_time)
   save(model_df, file = model_df_file)
 } else {
@@ -273,8 +273,8 @@ One issue that arises from only including business days in our analysis is that 
 
 ```{r wh-line, fig.cap="(ref:wh-line-cap)"}
 main_df %>%
-  filter(date(ts) == fcst_test_dates[5]) %>% 
-  filter(bid %in% sample(unique(bid), 4)) %>% 
+  filter(date(ts) == fcst_test_dates[5]) %>%
+  filter(bid %in% sample(unique(bid), 4)) %>%
   ggplot(aes(x = ts, y = wh)) +
   geom_line() +
   facet_wrap(~bid) +
@@ -293,7 +293,7 @@ main_df %>%
          month(ts) %in% c(12, 1, 2),
          period %in% plot_periods) %>%
   mutate(hour = factor(hour(ts))) %>%
-  mutate(period = factor(period)) %>% 
+  mutate(period = factor(period)) %>%
   ggplot(aes(x = temperature, y = log(wh), colour = bid)) +
   geom_point(shape = "O", alpha = 0.5) +
   geom_smooth(alpha = 0.2, method = "lm", formula = y ~ ns(x, df = 3)) +
@@ -307,15 +307,15 @@ main_df %>%
 ```{r wh-lagwh96-scatter, fig.cap="Relationship between electricity demand and one-day lagged demand for all Australian office buildings during Summer. Mondays have a different relationship with their one-day lagged demand values due to the discontinuity in time series introduced by removing non-business days. This is most noticeable during business hours (periods 48 and 72)."}
 main_df %>%
   filter(month(ts) %in% c(12, 1, 2),
-         period %in% plot_periods) %>% 
-  mutate(wday = wday(ts, label = TRUE, abbr = FALSE)) %>% 
-  ggplot(aes(x = wh_lag_96, y = wh, colour = wday)) + 
-  geom_point(shape = "O", alpha = 0.25) + 
+         period %in% plot_periods) %>%
+  mutate(wday = wday(ts, label = TRUE, abbr = FALSE)) %>%
+  ggplot(aes(x = wh_lag_96, y = wh, colour = wday)) +
+  geom_point(shape = "O", alpha = 0.25) +
   geom_smooth(alpha = 0.2, method = "lm", formula = y ~ ns(x, df = 3)) +
   facet_wrap(~period) +
   labs(y = expression(Normalised~electricity~(Wh/m^2)),
        x = expression(One~day~lagged~normalised~electricity~(Wh/m^2))) +
-  ylim(0, NA) + 
+  ylim(0, NA) +
   xlim(0, NA)
 ```
 
@@ -339,7 +339,7 @@ The relationship between temperature and electricity demand is shown in Figure \
 (ref:linear-cubic-splines-cap) Linear and cubic splines with three degrees of freedom fit to one building's demand data during Summer at 11:45 am. We observe that the linear spline results in severe kinks in the relationship which seems unrealistic. The cubic spline gives a much smoother fit and appears to be the more reasonable option. The natural spline is better again as it does not have the dramatic dip in predicted demand that the cubic spline has for high temperatures.
 
 ```{r plot-linear-cubic-splines, fig.cap="(ref:linear-cubic-splines-cap)"}
-p_data <- main_df %>% 
+p_data <- main_df %>%
   filter(bid == "BID0005",
          period == 48,
          # period %in% 40:52,
@@ -356,10 +356,10 @@ p_data <- p_data %>%
 
 ggplot(mapping = aes(x = temperature)) +
   geom_point(data = p_data, aes(y = log(wh)), shape = "O", alpha = 0.5) +
-  geom_line(data = p_data %>% 
+  geom_line(data = p_data %>%
               select(temperature, `Linear spline`, `Cubic spline`,
-                     `Natural spline`) %>% 
-              gather(var, val, -temperature) %>% 
+                     `Natural spline`) %>%
+              gather(var, val, -temperature) %>%
               mutate(var = factor(var, levels = c("Linear spline", "Cubic spline", "Natural spline"))),
             aes(y = val, colour = var)) +
   facet_wrap(~var) +
@@ -428,7 +428,7 @@ where $p$ is the 15-minute period of the day at time $t$, $w_{0,t}$ is the scale
 
 A linear relationship between temperature and electricity demand may not be sufficient to adequately capture the relationship between the two. Natural cubic splines allow a more flexible relationship between predictors and the response. In this model the log demand of each building is modelled separately using natural splines. Additional predictor variables are introduced in this model, such as lagged temperature variables; maximum, minimum and average temperatures; and lagged demand. Details of each of these predictors is presented in Table \@ref(tab:weather-vars). We denote this set of predictor variables as $\mathcal{P}_t$, which contains the selected variables for the 15-minute period of day and month at time $t$. The exact combination of variables is chosen via our feature selection methodology (see Section \@ref(feature-selection)).
 
-In this model, a building's demand based on temperature and other selected predictors is given by 
+In this model, a building's demand based on temperature and other selected predictors is given by
 
 $$
 \begin{gathered}
@@ -558,15 +558,15 @@ A key point to note is that feature selection was done on the weather variables 
 (ref:fs-model-selection) LOOCV scores for each month. In general, the LOOCV errors initially decrease as variables are added, but begin to increase slightly at a certain point for each period.
 
 ```{r fs-model-selection, fig.cap = "(ref:fs-model-selection)"}
-fs_df %>% 
-  select(month, period, features) %>% 
-  unnest() %>% 
-  select(month, period, n_vars, loocv) %>% 
-  mutate(month = month(month, label=TRUE)) %>% 
+fs_df %>%
+  select(month, period, features) %>%
+  unnest() %>%
+  select(month, period, n_vars, loocv) %>%
+  mutate(month = month(month, label=TRUE)) %>%
   ggplot(aes(y = loocv, x = n_vars, colour = period, group = period)) +
   geom_line(alpha = 0.5) +
-  facet_wrap(~month) + 
-  scale_colour_gradient(low = ba_palette[1], high = ba_palette[2]) + 
+  facet_wrap(~month) +
+  scale_colour_gradient(low = ba_palette[1], high = ba_palette[2]) +
   ylim(0,0.25) +
   labs(x = "Number of variables",
        y = "LOOCV scores",
@@ -636,34 +636,34 @@ For reference, Appendix \@ref(feature-selection-for-all-months) contains feature
 (ref:fs-alpha) Feature selection for summer and winter including shoulder months.
 
 ```{r fs-alpha, fig.cap="(ref:fs-alpha)", fig.height=7*1.4}
-fs_df %>% 
-  select(period, month, vars) %>% 
-  unnest() %>% 
+fs_df %>%
+  select(period, month, vars) %>%
+  unnest() %>%
   mutate(selected = TRUE,
-         month = month(month, label = TRUE)) %>% 
-  spread(vars, selected, fill = FALSE) %>% 
+         month = month(month, label = TRUE)) %>%
+  spread(vars, selected, fill = FALSE) %>%
   # Ensure models with no variables selected have white squares plotted
   right_join(list(month = unique(month(fcst_test_dates)),
-                  period = fcst_test_periods) %>% 
-               cross_df() %>% 
+                  period = fcst_test_periods) %>%
+               cross_df() %>%
                mutate(month = month(month, label = TRUE)),
-             by = c("month", "period")) %>% 
-  gather(vars, selected, -c(period, month)) %>% 
+             by = c("month", "period")) %>%
+  gather(vars, selected, -c(period, month)) %>%
   mutate(selected = tidyr::replace_na(selected, FALSE),
          vars = fct_rev(factor(vars, levels = weather_vars)),
          season = if_else(month %in% month(c(10:12, 1:3), label = TRUE),
-                          "October-March", "April-September")) %>% 
+                          "October-March", "April-September")) %>%
   group_by(season, period, vars) %>%
-  summarise(n_selected = sum(selected)) %>% 
-  ungroup() %>% 
+  summarise(n_selected = sum(selected)) %>%
+  ungroup() %>%
   mutate(selected = if_else(n_selected > 0, TRUE, FALSE),
          predictor_type = case_when(
            str_detect(vars, "^scaled_temperature") ~ "Temperature",
            str_detect(vars, "^scaled_wh") ~ "Demand",
            TRUE ~ "Other"
-         )) %>% 
+         )) %>%
   filter(n_selected > 0) %>%  # don't want any fill for 0
-  ggplot(aes(x = period, y = vars, alpha = n_selected, 
+  ggplot(aes(x = period, y = vars, alpha = n_selected,
              fill = predictor_type)) +
   geom_tile() +
   theme(panel.grid.major = element_blank(),
@@ -689,24 +689,24 @@ Given that the SSCATTR model outperforms each of our benchmarks it seems reasona
 
 ```{r accuracy-results}
 calculate_accuracy <- function(df, periods) {
-  df <- df %>% 
-    unnest(preds) %>% 
-    filter(period %in% periods) %>% 
+  df <- df %>%
+    unnest(preds) %>%
+    filter(period %in% periods) %>%
     group_by(model)
-  
-  mase_df <- df %>% 
+
+  mase_df <- df %>%
     summarise(mae = mean(abs(resid)))
-  
+
   naive_mae <- mase_df %>% filter(model == "Naive") %>% pull(mae)
-  
-  mase_df <- mase_df %>% 
+
+  mase_df <- mase_df %>%
     mutate(mase = mae/naive_mae)
-  
-  accuracy_df <- df %>% 
+
+  accuracy_df <- df %>%
     summarise(mape = 100*mean(abs(resid/wh)),
-              smape = 200*mean(abs(resid)/(pred+wh))) %>% 
+              smape = 200*mean(abs(resid)/(pred+wh))) %>%
     inner_join(mase_df, by = "model")
-  
+
   accuracy_df
 }
 
@@ -715,18 +715,18 @@ tribble(
   ~ working_hours, ~periods,
   "All hours", 1:96,
   "Business hours", business_hour_periods,
-  "Non-business hours", setdiff(1:96, business_hour_periods)) %>% 
-  mutate(accuracy = map(periods, ~ calculate_accuracy(model_df, .x))) %>% 
-  unnest(accuracy) %>% 
-  select(Model = model, MAE = mae, MAPE = mape, sMAPE = smape, 
-         MASE = mase) %>% 
+  "Non-business hours", setdiff(1:96, business_hour_periods)) %>%
+  mutate(accuracy = map(periods, ~ calculate_accuracy(model_df, .x))) %>%
+  unnest(accuracy) %>%
+  select(Model = model, MAE = mae, MAPE = mape, sMAPE = smape,
+         MASE = mase) %>%
   knitr::kable(format = "latex",
                booktabs = TRUE,
                digits = 2,
                caption = "(ref:accuracy-results)") %>%
-  kableExtra::kable_styling() %>% 
-  kableExtra::group_rows("All hours", 1, 8) %>% 
-  kableExtra::group_rows("Business hours", 9, 16) %>% 
+  kableExtra::kable_styling() %>%
+  kableExtra::group_rows("All hours", 1, 8) %>%
+  kableExtra::group_rows("Business hours", 9, 16) %>%
   kableExtra::group_rows("Non-business hours", 17, 24)
 ```
 
@@ -734,14 +734,14 @@ tribble(
 (ref:one-day-ahead-forecast-cap) One-day ahead forecasts for `r format(p_one_day_ahead_date, "%d %B, %Y")`.
 
 ```{r one-day-ahead-forecast, fig.cap="(ref:one-day-ahead-forecast-cap)", fig.height=7*1.4}
-model_df %>% 
+model_df %>%
   unnest(preds) %>%
   # filter(bid %in% sample(unique(bid), 3),
   #        fcst_date %in% (dmy("13/3/2017")+0:4)) %>%
-  filter(fcst_date == p_one_day_ahead_date) %>% 
-  filter(bid %in% sample(unique(bid), 6)) %>% 
+  filter(fcst_date == p_one_day_ahead_date) %>%
+  filter(bid %in% sample(unique(bid), 6)) %>%
   mutate(ts = as_datetime(fcst_date) + minutes((period - 1)*24*60/96)) %>%
-  ggplot(aes(x = ts)) + 
+  ggplot(aes(x = ts)) +
   geom_line(aes(y = wh), colour = "black", linetype = "dashed") +
   geom_line(aes(y = pred, colour = model), alpha = 0.7) +
   facet_wrap(~bid, ncol = 2) +
@@ -776,7 +776,7 @@ model_df %>%
          dm_statistic = map_dbl(dm_test, "statistic"),
          dm_p_value = map_dbl(dm_test, "p.value")) %>%
   select(period, dm_statistic, dm_p_value) %>%
-  filter(period %in% (1:24*4)) %>% 
+  filter(period %in% (1:24*4)) %>%
   mutate(significance = case_when(
     dm_p_value < 0.001 ~ "***",
     dm_p_value < 0.01 ~ "**",
@@ -785,7 +785,7 @@ model_df %>%
     TRUE ~ ""
   )) %>%
   rename(Period = period, `DM statistic` = dm_statistic,
-         `P-value` = dm_p_value, Significance = significance) %>% 
+         `P-value` = dm_p_value, Significance = significance) %>%
   knitr::kable(format = "latex",
                booktabs = TRUE,
                caption = "(ref:dm-test-periods-cap)") %>%
@@ -877,11 +877,11 @@ We will now show an example of producing scenario analysis for one of our buildi
 (ref:attributes-scenario-bid-cap) Building attributes for Building `r scenario_bid`.
 
 ```{r attributes-scenario-bid}
-main_df %>% 
-  filter(bid == scenario_bid) %>% 
-  select(!!building_attributes) %>% 
-  slice(1) %>% 
-  gather(Attribute, Present) %>% 
+main_df %>%
+  filter(bid == scenario_bid) %>%
+  select(!!building_attributes) %>%
+  slice(1) %>%
+  gather(Attribute, Present) %>%
   knitr::kable(format = "latex",
                booktabs = TRUE,
                caption = "(ref:attributes-scenario-bid-cap)") %>%
@@ -891,14 +891,14 @@ main_df %>%
 (ref:attribute-changes) Expected normalised electricity consumption for three days in January, 2017 for building `r scenario_bid`. The expected demand for the existing building is shown ("Original building"), as well as four scenarios each of which involves the modification of one of the attributes. The grey line show the actual demand observed on each day.
 
 ```{r attribute-changes, fig.cap="(ref:attribute-changes)"}
-p_data <- model_df %>% 
-  select(period, fcst_date, scenarios) %>% 
+p_data <- model_df %>%
+  select(period, fcst_date, scenarios) %>%
   # filter(fcst_date %in% (ymd("2017-01-09") + 0:4)) %>%
-  filter(fcst_date %in% scenario_dates[2:4]) %>% 
-  unnest() %>% 
+  filter(fcst_date %in% scenario_dates[2:4]) %>%
+  unnest() %>%
   filter(bid %in% scenario_bid)
   # TODO: Move this to the test-models script
-  # mutate(scenario = factor(scenario, labels = c("Original building", "Tenant feed included", "Switch to DX system", "Switch to electric element heating", "Switch to centralised distribution"))) %>% 
+  # mutate(scenario = factor(scenario, labels = c("Original building", "Tenant feed included", "Switch to DX system", "Switch to electric element heating", "Switch to centralised distribution"))) %>%
 
 ggplot() +
   geom_line(data = p_data, aes(x = ts, y = wh),
@@ -918,29 +918,29 @@ ggplot() +
 ```{r cumulative-impact-dx, fig.cap="(ref:cumulative-impact-dx)"}
 scenario_vars <- c("Original building", "Switch to DX system")
 
-p_df <- model_df %>% 
-  select(period, fcst_date, scenarios) %>% 
-  filter(fcst_date %in% scenario_dates) %>% 
-  unnest() %>% 
+p_df <- model_df %>%
+  select(period, fcst_date, scenarios) %>%
+  filter(fcst_date %in% scenario_dates) %>%
+  unnest() %>%
   filter(bid == scenario_bid,
-         scenario %in% c("original", "dxsystem")) %>% 
+         scenario %in% c("original", "dxsystem")) %>%
   # TODO: Move this to the test-models script
   mutate(scenario = factor(scenario, levels = c("original", "dxsystem"),
-                           labels = scenario_vars)) %>% 
-  select(scenario, ts, pred) %>% 
-  spread(scenario, pred) %>% 
-  mutate(saving = get(scenario_vars[2]) - get(scenario_vars[1]), 
+                           labels = scenario_vars)) %>%
+  select(scenario, ts, pred) %>%
+  spread(scenario, pred) %>%
+  mutate(saving = get(scenario_vars[2]) - get(scenario_vars[1]),
   # TODO: is this saving calc correct? Should I divide by 4?
-         saving = cumsum(saving)) %>% 
-  gather(var, Wh, -ts) %>% 
+         saving = cumsum(saving)) %>%
+  gather(var, Wh, -ts) %>%
   mutate(facet_row = if_else(var %in% scenario_vars, "Energy usage",
                              "Cumulative difference"),
          facet_row = factor(facet_row, levels = c("Energy usage",
                              "Cumulative difference")))
 
 ggplot(mapping = aes(x = ts, y = Wh)) +
-  geom_line(data = p_df %>% 
-              filter(var %in% scenario_vars) %>% 
+  geom_line(data = p_df %>%
+              filter(var %in% scenario_vars) %>%
               rename(scenario = var),
             aes(colour = scenario)) +
   geom_area(data = filter(p_df, var == "saving"), fill = ba_palette[3],
@@ -970,35 +970,35 @@ This research was supported by use of the Nectar Research Cloud, a collaborative
 
 # (APPENDIX) Appendix {-}
 
-# Feature selection for all months 
+# Feature selection for all months
 
 Figure \@ref(fig:fs-all-periods-months) shows selected variables for all months of the year.
 
 (ref:fs-all-periods-months) Selected features for each month of the year.
 
 ```{r fs-all-periods-months, fig.cap="(ref:fs-all-periods-months)", fig.height = 7*1.4}
-fs_df %>% 
-  select(period, month, vars) %>% 
-  unnest() %>% 
+fs_df %>%
+  select(period, month, vars) %>%
+  unnest() %>%
   mutate(selected = TRUE,
-         month = month(month, label = TRUE)) %>% 
-  spread(vars, selected, fill = FALSE) %>% 
+         month = month(month, label = TRUE)) %>%
+  spread(vars, selected, fill = FALSE) %>%
   # Ensure models with no variables selected have white squares plotted
   right_join(list(month = unique(month(fcst_test_dates)),
-                 period = fcst_test_periods) %>% 
-              cross_df() %>% 
+                 period = fcst_test_periods) %>%
+              cross_df() %>%
               mutate(month = month(month, label = TRUE)),
-            by = c("month", "period")) %>% 
-  gather(vars, selected, -c(period, month)) %>% 
+            by = c("month", "period")) %>%
+  gather(vars, selected, -c(period, month)) %>%
   mutate(selected = tidyr::replace_na(selected, FALSE),
          vars = fct_rev(factor(vars, levels = weather_vars)),
          predictor_type = case_when(
            str_detect(vars, "^scaled_temperature") ~ "Temperature",
            str_detect(vars, "^scaled_wh") ~ "Demand",
            TRUE ~ "Other"
-         )) %>% 
-  filter(selected == TRUE) %>% 
-  ggplot(aes(x = period, y = vars, fill = predictor_type)) + 
+         )) %>%
+  filter(selected == TRUE) %>%
+  ggplot(aes(x = period, y = vars, fill = predictor_type)) +
   geom_tile() +
   facet_wrap(~month) +
   # scale_fill_manual(values = c("white", "#3d6b78")) +
