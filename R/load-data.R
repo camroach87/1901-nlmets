@@ -1,8 +1,3 @@
-library(bahelpers)
-library(myhelpr)
-library(tsibble)
-
-
 #' Loads all building data
 #' 
 #' Creates a data frame containing building demand and attributes.
@@ -85,7 +80,6 @@ load_all_data <- function(attribute_file, qh_path, building_list_file,
 #' data storage. Not much can be done about that unfortunately.
 #'
 #' @param qh_path
-#' @param output_file
 #'
 #' @return
 #' @export
@@ -139,8 +133,8 @@ filter_business_days <- function(data, outlier_file) {
 #' training days are present for each building.
 #'
 #' @param data
-#' @param date
-#' @param period
+#' @param filter_date
+#' @param filter_period
 #' @param train_window
 #' @param min_train_days
 #' @param train_only logical. Indicates if only training data frame should be
