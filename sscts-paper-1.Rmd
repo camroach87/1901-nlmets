@@ -814,38 +814,6 @@ model_df %>%
   kableExtra::kable_styling()
 ```
 
-<!-- (ref:dm-test-all-cap) Diebold-Mariano test to compare forecast accuracy of ILR and SSCATTR models. Alternative hypothesis is SSCATTR model is more accurate than ILR model. All periods tested together. -->
-
-<!-- ```{r dm-test-all} -->
-<!-- model_df %>% -->
-<!--   select(fcst_date, period, preds) %>% -->
-<!--   unnest() %>% -->
-<!--   select(fcst_date, period, bid, model, resid) %>% -->
-<!--   filter(model %in% c("ILR", "SSCATTR")) %>% -->
-<!--   spread(model, resid) %>% -->
-<!--   # group_by(period) %>% -->
-<!--   nest() %>% -->
-<!--   mutate(# t_test = map(data, ~ t.test(.$ILR, .$SSCATTR)), -->
-<!--          # t_value = map_dbl(t_test, "statistic"), -->
-<!--          # t_p_value = map_dbl(t_test, "p.value"), -->
-<!--          # dm_test = map(data, ~ dm.test(.$ILR, .$SSCATTR, alternative = "two.sided")), -->
-<!--          dm_test = map(data, ~ dm.test(.$ILR, .$SSCATTR, -->
-<!--                                        alternative = "greater", h = 1)), -->
-<!--          dm_statistic = map_dbl(dm_test, "statistic"), -->
-<!--          dm_p_value = map_dbl(dm_test, "p.value")) %>% -->
-<!--   select(dm_statistic, dm_p_value) %>% -->
-<!--   mutate(significance = case_when( -->
-<!--     dm_p_value < 0.001 ~ "***", -->
-<!--     dm_p_value < 0.01 ~ "**", -->
-<!--     dm_p_value < 0.05 ~ "*", -->
-<!--     dm_p_value < 0.1 ~ ".", -->
-<!--     TRUE ~ "" -->
-<!--   )) %>% -->
-<!--   knitr::kable(format = "latex", -->
-<!--                booktabs = TRUE, -->
-<!--                caption = "(ref:dm-test-all-cap)") %>% -->
-<!--   kableExtra::kable_styling() -->
-<!-- ``` -->
 
 <!-- ## Autocorrelation in residuals -->
 
