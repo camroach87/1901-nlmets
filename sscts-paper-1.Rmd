@@ -82,6 +82,7 @@ building_list_file <- file.path(data_dir, "building_list_20181022.csv")
 all_data_file <- "cache/main_df.RData"
 fs_df_file <- "cache/fs_df.RData"
 model_df_file <- "cache/model_df.RData"
+accuracy_df_file <- "cache/accuracy_df.RData"
 
 # Modelling
 n_max_features <- NULL
@@ -250,6 +251,54 @@ if (!file.exists(model_df_file)) {
   fcst_test_dates <- unique(model_df$fcst_date) # use what is in cached file
 }
 ```
+
+```{r accuracy}
+#### Calculate accuracy =======================================================
+if (!file.exists(accuracy_df_file)) {
+  cat("Calculating accuracy scores...\n\n")
+  
+  calculate_accuracy <- function(df, periods) {
+    df <- df %>%
+      unnest(preds) %>%
+      filter(period %in% periods) %>%
+      group_by(model)
+    
+    mase_df <- df %>%
+      summarise(mae = mean(abs(resid)))
+    
+    naive_mae <- mase_df %>%
+      filter(model == "Naive") %>%
+      pull(mae)
+    
+    mase_df <- mase_df %>%
+      mutate(mase = mae / naive_mae)
+    
+    accuracy_df <- df %>%
+      summarise(
+        mape = 100 * mean(abs(resid / wh)),
+        smape = 200 * mean(abs(resid) / (pred + wh))
+      ) %>%
+      inner_join(mase_df, by = "model")
+    
+    accuracy_df
+  }
+  
+  accuracy_df <- tribble(
+    ~working_hours, ~periods,
+    "All hours", 1:96,
+    "Business hours", business_hour_periods,
+    "Non-business hours", setdiff(1:96, business_hour_periods)
+  ) %>%
+    mutate(accuracy = map(periods, ~ calculate_accuracy(model_df, .x))) %>%
+    unnest(accuracy)
+  
+  save(accuracy_df, file = accuracy_df_file)
+} else {
+  cat("Loaded accuracy data frame...\n\n")
+  load(accuracy_df_file)
+}
+```
+
 
 \begin{abstract}
 Buildings are typically equipped with smart meters to measure demand at regular intervals. Smart meter data for a single building has many uses, such as forecasting and assessing overall building performance. However, when data is available from multiple buildings, smart meter data can have additional uses which are rarely explored. For instance, we can explore how different building characteristics influence energy demand. If each building is treated as a random effect and building characteristics are handled as fixed effects, a mixed effects model can be used to estimate how characteristics affect energy usage. In this paper we demonstrate that producing one-day ahead demand predictions for `r n_buildings` commercial office buildings using mixed models can improve forecasting accuracy. We experiment with random intercept, random intercept and slope, and subject-specific curve mixed models. The predictive performance of the mixed effects models are tested against naive, linear and nonlinear benchmark models fitted to each building separately. Having justified the use of a mixed model framework, we provide an example showing how mixed model frameworks can, when combined with smart meter data and building attributes, be used to carry out scenario analysis. We demonstrate how expected electricity consumption may increase or decrease given a change in building attributes. This research justifies using mixed models to improve forecasting accuracy and to quantify changes in energy consumption under different building configuration scenarios.
@@ -708,40 +757,7 @@ Given that the SSCATTR model outperforms each of our benchmarks it seems reasona
 (ref:accuracy-results) Forecasting accuracy measures for each model across the entire day, business hours (7:00 am to 7:00 pm) and non-business hours (7:00 pm to 7:00 am).
 
 ```{r accuracy-results}
-calculate_accuracy <- function(df, periods) {
-  df <- df %>%
-    unnest(preds) %>%
-    filter(period %in% periods) %>%
-    group_by(model)
-
-  mase_df <- df %>%
-    summarise(mae = mean(abs(resid)))
-
-  naive_mae <- mase_df %>%
-    filter(model == "Naive") %>%
-    pull(mae)
-
-  mase_df <- mase_df %>%
-    mutate(mase = mae / naive_mae)
-
-  accuracy_df <- df %>%
-    summarise(
-      mape = 100 * mean(abs(resid / wh)),
-      smape = 200 * mean(abs(resid) / (pred + wh))
-    ) %>%
-    inner_join(mase_df, by = "model")
-
-  accuracy_df
-}
-
-tribble(
-  ~working_hours, ~periods,
-  "All hours", 1:96,
-  "Business hours", business_hour_periods,
-  "Non-business hours", setdiff(1:96, business_hour_periods)
-) %>%
-  mutate(accuracy = map(periods, ~ calculate_accuracy(model_df, .x))) %>%
-  unnest(accuracy) %>%
+accuracy_df %>%
   select(
     Model = model, MAE = mae, MAPE = mape, sMAPE = smape,
     MASE = mase
