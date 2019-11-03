@@ -558,9 +558,9 @@ Table \@ref(tab:weather-vars) shows a list of demand variables that were conside
 
 Numerous studies have already shown the link between electricity demand and current temperature [@Ben_Taieb2016-wl; @Fan2012-bs; @Roach2018-pf; @Hong2016-lo; @Hong2019-ie]. Hence, we chose to conduct feature selection conditional on the current temperature being included. There were several reasons for this:
 
-* Much of the literature on load forecasting already identifies the importance of current temperature in forecasting demand and we can see a clear nonlinear relationship in Figure \@ref(fig:temp-wh-scatter).
-* As temperature is strongly correlated with recent values there were occasions when the current temperature would not be selected but a slightly lagged variable would be. This seemed unrealistic and was likely caused by noise in the data rather than a lagged temperature being a better predictor than actual temperature.
-* Forcing current temperature to be included reduced the number of feature combinations to search through by a factor of 2.
+  * Much of the literature on load forecasting already identifies the importance of current temperature in forecasting demand and we can see a clear nonlinear relationship in Figure \@ref(fig:temp-wh-scatter).
+  * As temperature is strongly correlated with recent values there were occasions when the current temperature would not be selected but a slightly lagged variable would be. This seemed unrealistic and was likely caused by noise in the data rather than a lagged temperature being a better predictor than actual temperature.
+  * Forcing current temperature to be included reduced the number of feature combinations to search through by a factor of 2.
 
 We use the pooled linear regression model for feature selection as it is quick to fit using ordinary least squares and allows us to model buildings by using a dummy variable for each. Using a linear model also has the advantage of allowing us to efficiently compute the leave-one-out cross-validation (LOOCV) scores [@Seber2012-gu]. Training data is comprised of business days within a window of `r fcst_train_window` days prior to the month we wish to select variables for. As our experimental setup for the validation phase involves one-day ahead forecasts, this variable selection prevents us from using any data from the future. For example, when forecasting for any date in January, only data from the months of October, November and December would have been used to select predictors.
 
@@ -619,10 +619,10 @@ If for a given 1-day ahead forecast a building had less than `r fcst_min_train_d
 
 To assess the forecasting accuracy of each of our models we use four common error metrics.
 
-1. Mean absolute error (MAE).
-2. Mean absolute percentage error (MAPE).
-3. Symmetric mean absolute percentage error (sMAPE).
-4. Mean absolute scaled error (MASE).
+  1. Mean absolute error (MAE).
+  2. Mean absolute percentage error (MAPE).
+  3. Symmetric mean absolute percentage error (sMAPE).
+  4. Mean absolute scaled error (MASE).
 
 These are all well established forecasting metrics. Advantages and disadvantages of each are well described in @Hyndman2006-bp.
 
