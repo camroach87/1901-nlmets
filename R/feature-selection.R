@@ -1,5 +1,6 @@
 #' Carry out feature selection using pooled model
 #'
+#' @param formula object of class formula containing natural splines.
 #' @param fs_date date. Date to carry out feature selection for.
 #' @param fs_period integer. 15-minute period of day to carry out feature
 #'   selection for.
@@ -12,31 +13,13 @@
 #' @export
 #'
 #' @examples
-select_features <- function(fs_date, fs_period, train_window, min_train_days, 
+select_features <- function(formula, fs_date, fs_period, train_window, min_train_days, 
                             ...) {
-  cat(paste0("Selecting features for ", month(fs_date, T, F), 
-             ", period ", fs_period, ".\n"))
+  cat(paste0("Selecting features for ", month(fs_date, T, F), ", period ", 
+             fs_period, ".\n"))
   data_list <- train_test_split(main_df, fs_date, fs_period, train_window,
                                 min_train_days, train_only = TRUE)
   list2env(data_list, env = environment())
-  
-  # FIXME: this should be passed as an input argument
-  formula <- ~  
-    bid +
-    ns(scaled_temperature, df = 3) +
-    ns(scaled_temperature_lag_12, df = 3) +
-    ns(scaled_temperature_lag_24, df = 3) +
-    ns(scaled_temperature_lag_48, df = 3) +
-    ns(scaled_temperature_lag_72, df = 3) +
-    ns(scaled_temperature_lag_96, df = 3) +
-    ns(scaled_temperature_lag_192, df = 3) +
-    ns(scaled_temperature_lag_288, df = 3) +
-    ns(scaled_temperature_max, df = 3) +
-    ns(scaled_temperature_min, df = 3) +
-    ns(scaled_temperature_avg, df = 3) +
-    ns(scaled_wh_lag_96, df = 3) +
-    ns(scaled_wh_lag_192, df = 3) +
-    ns(scaled_wh_lag_672, df = 3)
   
   best_subset(train_df, formula, "scaled_temperature", ...)
 }
@@ -68,18 +51,20 @@ best_subset <- function(train_df, formula, forced_vars = NULL, size = 1,
   
   ftr_df <- tibble(name = attr(design_matrix, "names")) %>% 
     mutate(building_dummy = str_detect(name, "^bid"),
-           weather_var = str_extract(name, "(?<=ns\\()[[:alnum:]_]*"),
-           forced_var = if_else(weather_var %in% forced_vars, TRUE, FALSE))
+           candidate_var = str_extract(name, "(?<=ns\\()[[:alnum:]_]*"),
+           forced_var = if_else(candidate_var %in% forced_vars, TRUE, FALSE))
   
   candidate_vars <- ftr_df %>% 
-    filter(!is.na(weather_var),
+    filter(!is.na(candidate_var),
            forced_var == FALSE) %>% 
-    pull(weather_var) %>% 
+    pull(candidate_var) %>% 
     unique()
+  
   n_var <- min(length(candidate_vars), n_var_max)
   
   cat("Forced variables are:", forced_vars, "\n")
-  cat("Selecting from maximum of", n_var, "candidate variables. Testing: ")
+  cat("Candidate variables are:", candidate_vars, "\n")
+  cat("Selecting a maximum of", n_var, "candidate variables. Testing: ")
   
   start_time <- Sys.time()
   best_list <- list()
@@ -91,7 +76,7 @@ best_subset <- function(train_df, formula, forced_vars = NULL, size = 1,
     for (j in 1:length(var_combn)) {
       # Find best model with i candidate variables
       fit.dm_columns <- ftr_df %>% 
-        filter(weather_var %in% var_combn[[j]]) %>% 
+        filter(candidate_var %in% var_combn[[j]]) %>% 
         pull(name) %>% 
         c(ftr_df %>%
             filter(building_dummy == TRUE) %>%

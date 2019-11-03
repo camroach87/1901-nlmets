@@ -95,11 +95,7 @@ building_attributes <- c(
   "electricelementheating",
   "centraldist"
 )
-# TODO: This needs to be updated in more than one place (see test-models.R)
-#       whenever predictors change. Not good! Define in one place only.
-#       Formula for test_models should be created here based on these vars.
-# TODO: Rename to pred_vars because lagged demand is also included.
-weather_vars <- c(
+predictor_vars <- c(
   "scaled_temperature",
   "scaled_temperature_lag_12",
   "scaled_temperature_lag_24",
@@ -115,6 +111,7 @@ weather_vars <- c(
   "scaled_wh_lag_192",
   "scaled_wh_lag_672"
 )
+formula_all <- as.formula(paste("~ bid +", get_terms(predictor_vars)))
 
 # Presentation
 p_one_day_ahead_date <- dmy("23/8/2017")
@@ -141,8 +138,8 @@ if (!file.exists(all_data_file)) {
     rename_at(vars(starts_with("wh_lag")), ~ paste0("scaled_", .)) %>%
     mutate(
       temperature = scaled_temperature, # keep original temperature for plotting
-      wh_lag_96 = scaled_wh_lag_96
-    ) %>% # keep original 96 lag demand for plotting
+      wh_lag_96 = scaled_wh_lag_96      # keep original 96 lag demand for plotting
+    ) %>% 
     mutate_at(vars(starts_with("scaled")), scale_dbl) %>% # scale
     select(
       ts, date, period, bid, wh, temperature, wh_lag_96,
@@ -200,6 +197,7 @@ if (!file.exists(fs_df_file)) {
       fs_date,
       period,
       select_features,
+      formula = formula_all,
       train_window = fcst_train_window,
       min_train_days = fcst_min_train_days,
       n_var_max = n_max_features,
@@ -215,7 +213,6 @@ if (!file.exists(fs_df_file)) {
 
 fs_df <- fs_df %>%
   mutate(vars = map(features, ~ .x %>%
-    # filter(bic == min(bic)) %>%
     filter(loocv == min(loocv)) %>%
     pull(vars) %>%
     unlist()))
@@ -665,7 +662,7 @@ fs_df %>%
   gather(vars, selected, -c(period, month)) %>%
   mutate(
     selected = tidyr::replace_na(selected, FALSE),
-    vars = fct_rev(factor(vars, levels = weather_vars)),
+    vars = fct_rev(factor(vars, levels = predictor_vars)),
     season = if_else(month %in% month(c(10:12, 1:3), label = TRUE),
       "October-March", "April-September"
     )
@@ -828,38 +825,6 @@ model_df %>%
   kableExtra::kable_styling()
 ```
 
-<!-- (ref:dm-test-all-cap) Diebold-Mariano test to compare forecast accuracy of ILR and SSCATTR models. Alternative hypothesis is SSCATTR model is more accurate than ILR model. All periods tested together. -->
-
-<!-- ```{r dm-test-all} -->
-<!-- model_df %>% -->
-<!--   select(fcst_date, period, preds) %>% -->
-<!--   unnest() %>% -->
-<!--   select(fcst_date, period, bid, model, resid) %>% -->
-<!--   filter(model %in% c("ILR", "SSCATTR")) %>% -->
-<!--   spread(model, resid) %>% -->
-<!--   # group_by(period) %>% -->
-<!--   nest() %>% -->
-<!--   mutate(# t_test = map(data, ~ t.test(.$ILR, .$SSCATTR)), -->
-<!--          # t_value = map_dbl(t_test, "statistic"), -->
-<!--          # t_p_value = map_dbl(t_test, "p.value"), -->
-<!--          # dm_test = map(data, ~ dm.test(.$ILR, .$SSCATTR, alternative = "two.sided")), -->
-<!--          dm_test = map(data, ~ dm.test(.$ILR, .$SSCATTR, -->
-<!--                                        alternative = "greater", h = 1)), -->
-<!--          dm_statistic = map_dbl(dm_test, "statistic"), -->
-<!--          dm_p_value = map_dbl(dm_test, "p.value")) %>% -->
-<!--   select(dm_statistic, dm_p_value) %>% -->
-<!--   mutate(significance = case_when( -->
-<!--     dm_p_value < 0.001 ~ "***", -->
-<!--     dm_p_value < 0.01 ~ "**", -->
-<!--     dm_p_value < 0.05 ~ "*", -->
-<!--     dm_p_value < 0.1 ~ ".", -->
-<!--     TRUE ~ "" -->
-<!--   )) %>% -->
-<!--   knitr::kable(format = "latex", -->
-<!--                booktabs = TRUE, -->
-<!--                caption = "(ref:dm-test-all-cap)") %>% -->
-<!--   kableExtra::kable_styling() -->
-<!-- ``` -->
 
 <!-- ## Autocorrelation in residuals -->
 
@@ -927,8 +892,6 @@ p_data <- model_df %>%
   filter(fcst_date %in% scenario_dates[2:4]) %>%
   unnest() %>%
   filter(bid %in% scenario_bid)
-# TODO: Move this to the test-models script
-# mutate(scenario = factor(scenario, labels = c("Original building", "Tenant feed included", "Switch to DX system", "Switch to electric element heating", "Switch to centralised distribution"))) %>%
 
 ggplot() +
   geom_line(
@@ -959,7 +922,6 @@ p_df <- model_df %>%
     bid == scenario_bid,
     scenario %in% c("original", "dxsystem")
   ) %>%
-  # TODO: Move this to the test-models script
   mutate(scenario = factor(scenario,
     levels = c("original", "dxsystem"),
     labels = scenario_vars
@@ -968,7 +930,6 @@ p_df <- model_df %>%
   spread(scenario, pred) %>%
   mutate(
     saving = get(scenario_vars[2]) - get(scenario_vars[1]),
-    # TODO: is this saving calc correct? Should I divide by 4?
     saving = cumsum(saving)
   ) %>%
   gather(var, Wh, -ts) %>%
@@ -1044,7 +1005,7 @@ fs_df %>%
   gather(vars, selected, -c(period, month)) %>%
   mutate(
     selected = tidyr::replace_na(selected, FALSE),
-    vars = fct_rev(factor(vars, levels = weather_vars)),
+    vars = fct_rev(factor(vars, levels = predictor_vars)),
     predictor_type = case_when(
       str_detect(vars, "^scaled_temperature") ~ "Temperature",
       str_detect(vars, "^scaled_wh") ~ "Demand",

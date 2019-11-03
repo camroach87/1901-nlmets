@@ -40,8 +40,8 @@ fit_ind_lm <- function(data) {
 }
 
 
-fit_ind_ns <- function(data, wvars) {
-  terms <- get_terms(wvars)
+fit_ind_ns <- function(data, predictors) {
+  terms <- get_terms(predictors)
   
   output <- data %>% 
     group_by(bid) %>% 
@@ -69,16 +69,16 @@ predict.ind_lm <- function(object, newdata) {
 }
 
 
-fit_pool <- function(data, wvars) {
-  terms <- get_terms(wvars)
+fit_pool <- function(data, predictors) {
+  terms <- get_terms(predictors)
   
   lm(paste("log(wh) ~ bid +", terms),
      data = data)
 }
 
 
-fit_ri <- function(data, wvars) {
-  terms <- get_terms(wvars)
+fit_ri <- function(data, predictors) {
+  terms <- get_terms(predictors)
   
   lmer(paste("log(wh) ~ (1|bid) +", terms),
        data = data,
@@ -86,8 +86,8 @@ fit_ri <- function(data, wvars) {
 }
 
 
-fit_ris <- function(data, wvars) {
-  terms <- get_terms(wvars)
+fit_ris <- function(data, predictors) {
+  terms <- get_terms(predictors)
   
   lmer(paste("log(wh) ~ (scaled_temperature|bid) +", terms),
        data = data,
@@ -95,8 +95,8 @@ fit_ris <- function(data, wvars) {
 }
 
 
-fit_ssc <- function(data, wvars) {
-  terms <- get_terms(wvars)
+fit_ssc <- function(data, predictors) {
+  terms <- get_terms(predictors)
   
   lmer(paste("log(wh) ~ (ns(scaled_temperature, df = 3)|bid) +", terms),
        data = data,
@@ -104,8 +104,8 @@ fit_ssc <- function(data, wvars) {
 }
 
 
-fit_ssc_attr <- function(data, wvars) {
-  terms <- get_terms(wvars)
+fit_ssc_attr <- function(data, predictors) {
+  terms <- get_terms(predictors)
   
   lmer(paste("log(wh) ~ (ns(scaled_temperature, df = 3)|bid) +", terms,
          "+ basebldngfeedonly + dxsystem + electricelementheating +",
@@ -115,9 +115,9 @@ fit_ssc_attr <- function(data, wvars) {
 }
 
 
-get_terms <- function(wvars) {
-  if (length(wvars) > 0) {
-    terms <- paste(paste0("ns(", wvars, ", df = 3)"), collapse = " + ")
+get_terms <- function(predictors) {
+  if (length(predictors) > 0) {
+    terms <- paste(paste0("ns(", predictors, ", df = 3)"), collapse = " + ")
   } else {
     terms <- 1  # intercept only
   }

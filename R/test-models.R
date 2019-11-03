@@ -25,7 +25,7 @@ test_models <- function(fcst_date, fcst_period, train_window, min_train_days,
                                 min_train_days)
   list2env(data_list, env = environment())
   
-  wvars <- fs_df %>% 
+  predictors <- fs_df %>% 
     filter(month == month(fcst_date),
            period == fcst_period) %>% 
     pull(vars) %>% 
@@ -34,12 +34,12 @@ test_models <- function(fcst_date, fcst_period, train_window, min_train_days,
   # Add models we wish to fit here
   model_df <- list(Naive = fit_naive(train_df),
                    ILR = fit_ind_lm(train_df),
-                   INS = fit_ind_ns(train_df, wvars),
-                   PR = fit_pool(train_df, wvars),
-                   RI = fit_ri(train_df, wvars),
-                   RIS = fit_ris(train_df, wvars),
-                   SSC = fit_ssc(train_df, wvars),
-                   SSCATTR = fit_ssc_attr(train_df, wvars)) %>% 
+                   INS = fit_ind_ns(train_df, predictors),
+                   PR = fit_pool(train_df, predictors),
+                   RI = fit_ri(train_df, predictors),
+                   RIS = fit_ris(train_df, predictors),
+                   SSC = fit_ssc(train_df, predictors),
+                   SSCATTR = fit_ssc_attr(train_df, predictors)) %>% 
     map(list) %>% 
     as_tibble() %>% 
     gather(model, fit)
