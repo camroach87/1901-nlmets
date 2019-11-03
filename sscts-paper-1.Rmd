@@ -414,7 +414,7 @@ Several linear and mixed effects models were tested to determine which produced 
 
 ## Model formulation
 
-To justify our final model that we use for scenario analysis we test several models that can be thought of as simpler versions. Each model has a change introduced and the improvement in performance is used as justification for each. As a starting benchmark, we fit individual linear regression models to each building. The second set of individual models incorporate natural splines to model the temperature and demand relationships. The third, fourth and fifth models are random intercept, random slope and subject specific curve models. Finally, the sixth model is a subject specific curve model that includes building attributes as fixed effects. We also fit a naive model that uses the previous day's observed values as a benchmark. This is summarised in Table \@ref(tab:model-frameworks).
+To justify our final model that we use for scenario analysis we test several models that can be thought of as simpler versions. Each model has a change introduced and the improvement in performance is used as justification for each. As a starting benchmark, we fit individual linear regression models to each building. The second set of individual models incorporate natural splines to model the temperature and demand relationships. The third, fourth and fifth models are random intercept, random slope and subject-specific curve models. Finally, the sixth model is a subject-specific curve model that includes building attributes as fixed effects. We also fit a naive model that uses the previous day's observed values as a benchmark. This is summarised in Table \@ref(tab:model-frameworks).
 
 Table: (\#tab:model-frameworks) Models
 
@@ -426,8 +426,8 @@ Individual natural splines   | INS  | Natural spline models fit to each building
 Pooled regression            | PR | Regression model. Used for feature selection | All/Feature selection
 Random intercept             | RI   | Mixed effects model with random intercept | Feature selection
 Random intercept and slope   | RI   | Mixed effects model with random intercept and slope | Feature selection
-Subject specific curves      | SSC  | Mixed effects model with subject specific curves | Feature selection
-Subject specific curves with attributes | SSCATTR | SSC with building attributes included as fixed effects | Feature selection
+Subject-specific curves      | SSC  | Mixed effects model with subject-specific curves | Feature selection
+Subject-specific curves with attributes | SSCATTR | SSC with building attributes included as fixed effects | Feature selection
 
 Due to the evolving nature of energy demand across the day we fit separate models for each 15-minute period of the day. This gives 96 models for each building (when fitting individual models) and 96 models for each mixed effects formulation.
 
@@ -487,7 +487,7 @@ We do not estimate a separate smooth relationship between weather variables and 
 
 Having specified our framework for fitting separate models to each building it is now time to explore fitting mixed models. In each mixed effects model that follows, all buildings are included by treating each as a random effect. In section \@ref(forecasting-accuracy) we show that mixed models improve prediction accuracy and have the added benefit of allowing us to quantify the impact of building attributes on electricity demand.
 
-Originally, random effects were incorporated into each of the lagged weather variables, but this resulted in very poor fits presumably due to the high dimensionality. Instead, as with the PR model, we model the population relationship for all selected predictor variables and allow for subject specific differences using random intercepts, random slopes and subject specific curves (based on current temperature).
+Originally, random effects were incorporated into each of the lagged weather variables, but this resulted in very poor fits presumably due to the high dimensionality. Instead, as with the PR model, we model the population relationship for all selected predictor variables and allow for subject-specific differences using random intercepts, random slopes and subject-specific curves (based on current temperature).
 
 In the notation that follows we include subscripts $b$ to denote each building. Unlike the individual models above, which had separate models fit to each building, all buildings are used when training the mixed effects models and so we include an additional subscript to denote this. Again, to capture changing demand characteristics across the day, separate models are fit for each 15-minute period of the day giving 96 models for each mixed effects formulation.
 
@@ -521,9 +521,9 @@ $$
 
 Here we have included a random slope based on scaled current temperature, $w_{b,0,t}$. The random effects $u_{b,p,1}$ and $u_{b,p,2}$ control the subject-specific differences for intercept and slope, respectively. The matrix $\Sigma$ is a variance-covariance matrix for the random effects. It includes terms for the variance of intercepts between groups ($\sigma^2_{u,1}$), variance of slopes ($\sigma^2_{u,2}$) and the covariance between intercepts and slopes ($\sigma_{u,1,2}$).
 
-#### Subject specific curves model
+#### Subject-specific curves model
 
-As the relationship between demand and temperature can be quite non-linear we also explore modelling the subject specific differences in the temperature and energy relationship using splines. We call this model the subject specific curve (SSC) model in keeping with @Durban2005-lk. Note that we have modified their model to work with natural cubic splines as this gives a better fit when modelling the temperature and electricity relationship compared to penalized linear splines (Figure \@ref(fig:plot-linear-cubic-splines)). It is given by
+As the relationship between demand and temperature can be quite non-linear we also explore modelling the subject-specific differences in the temperature and energy relationship using splines. We call this model the subject-specific curve (SSC) model in keeping with @Durban2005-lk. Note that we have modified their model to work with natural cubic splines as this gives a better fit when modelling the temperature and electricity relationship compared to penalized linear splines (Figure \@ref(fig:plot-linear-cubic-splines)). It is given by
 $$
 \begin{gathered}
 \log y_{bt} = \sum_{x_{b,i,t} \in \mathcal{P}_t } f_{i,p}(x_{b,i,t}) + g_{b,p}( w_{b,0,t} ) + \epsilon_{b,t}, \\
@@ -535,9 +535,9 @@ $$
 
 As with our other models we use natural cubic splines with three degrees of freedom for both $f_{i,p}$ and $g_{b,p}$. This model allows us to capture separate temperature and electricity relationships for each building while also including the population relationships between electricity demand and other selected predictors.
 
-#### Subject specific curves with attributes model
+#### Subject-specific curves with attributes model
 
-As we wish to carry out scenario analysis we introduce several new variables into our model. These variables are the set of building attributes discussed in Section \@ref(attribute-data) which we denote by $\mathcal{A}$. We treat each of these attributes as a fixed effect. We refer to this model as the subject specific curves with attributes (SSCATTR) model.
+As we wish to carry out scenario analysis we introduce several new variables into our model. These variables are the set of building attributes discussed in Section \@ref(attribute-data) which we denote by $\mathcal{A}$. We treat each of these attributes as a fixed effect. We refer to this model as the subject-specific curves with attributes (SSCATTR) model.
 
 Our model for scenario analysis is given below
 $$
