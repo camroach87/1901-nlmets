@@ -28,15 +28,14 @@ knitr::opts_chunk$set(
   fig.align = "center",
   message = FALSE,
   warning = FALSE,
+  cache = TRUE,
+  cache.lazy = FALSE,
   # dev = "pdf",
   dev = "png",
   dpi = 200,
   fig.height = 5 * 1.4,
   fig.width = 8 * 1.4
 )
-
-rm(list = ls())
-
 library(tidyverse)
 library(tsibble)
 library(furrr)
@@ -52,7 +51,9 @@ source("R/feature-selection.R")
 source("R/test-models.R")
 source("R/models-lme4.R")
 source("R/plot-helpers.R")
+```
 
+```{r init}
 # packages .bib file
 knitr::write_bib(c("base", "lme4"),
   "packages.bib",
@@ -68,7 +69,9 @@ options(future.globals.maxSize = 850 * 1024^2) # increase limit to 850 Mb
 scale_dbl <- function(x) {
   (x - mean(x)) / sd(x)
 }
+```
 
+```{r parameters}
 #### Parameters ===============================================================
 # Data
 data_dir <- "/mnt/Documents/data/building_level"
@@ -118,7 +121,9 @@ p_one_day_ahead_date <- dmy("23/8/2017")
 scenario_bid <- "BID0010"
 scenario_dates <- ymd("2017-01-09") + 0:4
 business_hour_periods <- 29:76
+```
 
+```{r main}
 #### Setup ====================================================================
 # Run if qh .RData file hasn't been created
 if (!file.exists(all_data_file)) {
@@ -170,7 +175,10 @@ main_df <- main_df %>%
 # Calculate other variables
 n_buildings <- length(unique(main_df$bid))
 fcst_test_dates <- as_date(intersect(fcst_test_dates, unique(main_df$date)))
+```
 
+
+```{r features}
 #### Feature selection ========================================================
 if (!file.exists(fs_df_file)) {
   cat(
@@ -211,7 +219,10 @@ fs_df <- fs_df %>%
     filter(loocv == min(loocv)) %>%
     pull(vars) %>%
     unlist()))
+```
 
+
+```{r models}
 #### Fit models ===============================================================
 if (!file.exists(model_df_file)) {
   cat("Fitting models...\n\n")
