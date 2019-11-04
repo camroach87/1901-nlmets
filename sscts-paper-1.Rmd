@@ -778,16 +778,16 @@ accuracy_df %>%
 
 ```{r one-day-ahead-forecast, fig.cap="(ref:one-day-ahead-forecast-cap)", fig.height=7*1.4}
 model_df %>%
+  filter(fcst_date == p_one_day_ahead_date) %>%
   unnest(preds) %>%
   # filter(bid %in% sample(unique(bid), 3),
   #        fcst_date %in% (dmy("13/3/2017")+0:4)) %>%
-  filter(fcst_date == p_one_day_ahead_date) %>%
   filter(bid %in% sample(unique(bid), 6)) %>%
   mutate(ts = as_datetime(fcst_date) + minutes((period - 1) * 24 * 60 / 96)) %>%
   ggplot(aes(x = ts)) +
   geom_line(aes(y = wh), colour = "black", linetype = "dashed") +
   geom_line(aes(y = pred, colour = model), alpha = 0.7) +
-  facet_wrap(~bid, ncol = 2) +
+    facet_wrap(~bid, ncol = 2) +
   labs(
     y = expression(Normalised ~ electricity ~ (Wh / m^2)),
     x = "Date",
@@ -802,9 +802,10 @@ Here we perform a one-sided Diebold-Mariano test [@Diebold2002-ru] to determine 
 (ref:dm-test-periods-cap) Diebold-Mariano test to compare forecast accuracy of ILR and SSCATTR models. Alternative hypothesis is SSCATTR model is more accurate than ILR model. All periods tested separately. Only every fourth model falling on the hour is shown for legibility.
 
 ```{r dm-test-periods}
-model_df %>%
-  select(fcst_date, period, preds) %>%
-  unnest() %>%
+  model_df %>%
+    filter(period %in% (1:24 * 4)) %>%
+    select(fcst_date, period, preds) %>%
+    unnest() %>%
   select(fcst_date, period, bid, model, resid) %>%
   filter(model %in% c("ILR", "SSCATTR")) %>%
   spread(model, resid) %>%
@@ -821,7 +822,6 @@ model_df %>%
     dm_p_value = map_dbl(dm_test, "p.value")
   ) %>%
   select(period, dm_statistic, dm_p_value) %>%
-  filter(period %in% (1:24 * 4)) %>%
   mutate(significance = case_when(
     dm_p_value < 0.001 ~ "***",
     dm_p_value < 0.01 ~ "**",
