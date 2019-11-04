@@ -79,6 +79,7 @@ qh_path <- file.path(data_dir, "qh_2018")
 outlier_file <- file.path(data_dir, "outlier_dates_20181120.csv")
 attribute_file <- file.path(data_dir, "attributes_20181019_tidy.csv")
 building_list_file <- file.path(data_dir, "building_list_20181022.csv")
+
 all_data_file <- "cache/main_df.RData"
 fs_df_file <- "cache/fs_df.RData"
 model_df_file <- "cache/model_df.RData"
@@ -353,7 +354,7 @@ main_df %>%
   )
 ```
 
-```{r temp-wh-scatter, fig.cap="Relationship between temperature and electricity demand for four Australian office buildings during Summer. Data for at four different 15-minute periods of the day are shown. We can see a clear change in the relationship of our predictor and response variables both between buildings and at different times of the day."}
+```{r temp-wh-scatter, fig.cap="Relationship between temperature and electricity demand for four Australian office buildings during Summer. Data at four different 15-minute periods of the day are shown. We can see a clear change in the relationship of our predictor and response variables both between buildings and at different times of the day."}
 
 plot_bids <- c(sample(unique(main_df$bid), 3), "BID0052A")
 plot_periods <- c(24, 48, 72, 96)
@@ -460,7 +461,7 @@ Several linear and mixed effects models were tested to determine which produced 
 
 ## Model formulation
 
-To justify our final model that we use for scenario analysis we test several models that can be thought of as simpler versions. Each model has a change introduced and the improvement in performance is used as justification for each. As a starting benchmark, we fit individual linear regression models to each building. The second set of individual models incorporate natural splines to model the temperature and demand relationships. The third, fourth and fifth models are random intercept, random slope and subject-specific curve models. Finally, the sixth model is a subject-specific curve model that includes building attributes as fixed effects. We also fit a naive model that uses the previous day's observed values as a benchmark. This is summarised in Table \@ref(tab:model-frameworks).
+To justify our final model that we use for scenario analysis we test several models that can be thought of as simpler versions. Each model has a change introduced and the improvement in performance is used as justification for each. As a starting benchmark, we fit a naive model that uses the previous day's observed values. The second model fit individual linear regression models to each building. The third model also involves fitting a set of individual models but incorporate natural splines to model the temperature and demand relationships. The fourth, fifth and sixth models are random intercept, random slope and subject-specific curve models. Finally, the seventh model is a subject-specific curve model that includes building attributes as fixed effects. This is summarised in Table \@ref(tab:model-frameworks).
 
 Table: (\#tab:model-frameworks) Models
 
@@ -483,7 +484,7 @@ Predictors are centered and scaled prior to training models. The exact features 
 
 ### Individual models
 
-These serve as benchmark models to determine if moving to a mixed models framework improves prediction accuracy. Separate models are fit for each building. Note that a subscript for building has been omitted from each of these individual models to improve clarity.
+Individual models serve as benchmark models to determine if moving to a mixed models framework improves prediction accuracy. Separate models are fit for each building. Note that a subscript for building has been omitted from each of these individual models to improve clarity.
 
 #### Naive forecast model
 
@@ -547,7 +548,7 @@ f_{i,p}(x) = \sum^K_{k=1} \beta_{i,p,k} (x - \kappa_k)_+^3, \\
 \epsilon_{b,t} \sim N(0, \sigma^2_{\epsilon, p}), \quad u_{b,p} \sim N(0, \sigma_{u,p}^2),
 \end{gathered}
 $$
-where $u_{b,p}$ is a random effect that controls the intercept of the model. This is similar in form the the pooled regression model, with the coefficient $\beta_{b,p}$ replaced by the random intercept $u_{b,p}$. We don't use this model for feature selection in Section \@ref(feature-selection) as it takes much longer to fit than the pooled regression model.
+where $u_{b,p}$ is a random effect that controls the intercept of the model. This is similar in form to the pooled regression model, with the coefficient $\beta_{b,p}$ replaced by the random intercept $u_{b,p}$. We don't use this model for feature selection in Section \@ref(feature-selection) as it takes much longer to fit than the pooled regression model.
 
 #### Random intercept and slope model
 
@@ -565,7 +566,7 @@ f_{i,p}(x) = \sum^K_{k=1} \beta_{i,p,k} (x - \kappa_k)_+^3, \\
 \end{gathered}
 $$
 
-Here we have included a random slope based on scaled current temperature, $w_{b,0,t}$. The random effects $u_{b,p,1}$ and $u_{b,p,2}$ control the subject-specific differences for intercept and slope, respectively. The matrix $\Sigma$ is a variance-covariance matrix for the random effects. It includes terms for the variance of intercepts between groups ($\sigma^2_{u,1}$), variance of slopes ($\sigma^2_{u,2}$) and the covariance between intercepts and slopes ($\sigma_{u,1,2}$).
+Here we have included a random slope based on scaled current temperature, $w_{b,0,t}$. The random effects $u_{b,p,1}$ and $u_{b,p,2}$ control the subject-specific differences for intercept and slope, respectively. The matrix $\Sigma$ is a variance-covariance matrix for the random effects. It includes terms for the variance of intercepts ($\sigma^2_{u,1}$), the variance of slopes ($\sigma^2_{u,2}$) and the covariance between intercepts and slopes ($\sigma_{u,1,2}$).
 
 #### Subject-specific curves model
 
@@ -1044,3 +1045,4 @@ fs_df %>%
   ) +
   scale_x_continuous(breaks = seq(8, 96, 8))
 ```
+\newpage
