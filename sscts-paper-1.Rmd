@@ -125,7 +125,7 @@ business_hour_periods <- 29:76
 #### Setup ====================================================================
 # Run if qh .RData file hasn't been created
 if (!file.exists(all_data_file)) {
-  cat("Processing data...\n\n")
+  message("Processing data...\n\n")
   main_df <- load_all_data(
     attribute_file = attribute_file,
     qh_path = qh_path,
@@ -162,7 +162,7 @@ if (!file.exists(all_data_file)) {
 
   save(main_df, file = all_data_file)
 } else {
-  cat("Loaded cached processed data...\n\n")
+  message("Loaded cached processed data...\n\n")
   load(all_data_file)
 }
 
@@ -179,7 +179,7 @@ fcst_test_dates <- as_date(intersect(fcst_test_dates, unique(main_df$date)))
 ```{r features}
 #### Feature selection ========================================================
 if (!file.exists(fs_df_file)) {
-  cat(
+  message(
     "Running feature selection for max of", n_max_features,
     "candidate predictors...\n\n"
   )
@@ -208,7 +208,7 @@ if (!file.exists(fs_df_file)) {
   print(Sys.time() - start_time)
   save(fs_df, file = fs_df_file)
 } else {
-  cat("Loaded cached feature selection file...\n\n")
+  message("Loaded cached feature selection file...\n\n")
   load(fs_df_file)
 }
 
@@ -223,7 +223,7 @@ fs_df <- fs_df %>%
 ```{r models}
 #### Fit models ===============================================================
 if (!file.exists(model_df_file)) {
-  cat("Fitting models...\n\n")
+  message("Fitting models...\n\n")
   start_time <- Sys.time()
 
   model_df <- list(
@@ -246,7 +246,7 @@ if (!file.exists(model_df_file)) {
   print(Sys.time() - start_time)
   save(model_df, file = model_df_file)
 } else {
-  cat("Loaded cached models...\n\n")
+  message("Loaded cached models...\n\n")
   load(model_df_file)
   fcst_test_dates <- unique(model_df$fcst_date) # use what is in cached file
 }
@@ -255,7 +255,7 @@ if (!file.exists(model_df_file)) {
 ```{r accuracy}
 #### Calculate accuracy =======================================================
 if (!file.exists(accuracy_df_file)) {
-  cat("Calculating accuracy scores...\n\n")
+  message("Calculating accuracy scores...\n\n")
   
   calculate_accuracy <- function(df, periods) {
     df <- df %>%
@@ -294,7 +294,7 @@ if (!file.exists(accuracy_df_file)) {
   
   save(accuracy_df, file = accuracy_df_file)
 } else {
-  cat("Loaded accuracy data frame...\n\n")
+  message("Loaded accuracy data frame...\n\n")
   load(accuracy_df_file)
 }
 ```
