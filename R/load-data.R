@@ -35,16 +35,18 @@ load_all_data <- function(attribute_file, qh_path, building_list_file,
     inner_join(buildings) %>% 
     inner_join(qh_data) %>% 
     rename_all(tolower) %>% 
+    mutate(date = date(ts),
+           period = (hour(ts)+minute(ts)/60)*4 + 1,
+           wh = kwh/netlettablearea*1e3) %>% 
+    filter(assettype_uid == 9,  # Office buildings. Not including 5 - different type.
+           state %in% c("ACT", "NSW", "QLD", "SA", "VIC", "WA"),  # Australia only
+           wh > 0, # Remove obvious outliers
+           wh < 25) %>%  
     as_tsibble(key = id(bid), index = ts) %>% 
     fill_gaps() %>% 
     group_by(bid) %>% 
     fill(everything(), .direction = "down") %>% 
-    mutate(date = date(ts),
-           period = (hour(ts)+minute(ts)/60)*4 + 1,
-           wh = kwh/netlettablearea*1e3,
-           # temperature_lag_4 = lag(temperature, 4),
-           # temperature_lag_8 = lag(temperature, 8),
-           temperature_lag_12 = lag(temperature, 12),
+    mutate(temperature_lag_12 = lag(temperature, 12),
            temperature_lag_24 = lag(temperature, 24),
            temperature_lag_48 = lag(temperature, 48),
            temperature_lag_72 = lag(temperature, 72),
