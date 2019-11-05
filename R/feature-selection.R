@@ -73,6 +73,7 @@ best_subset <- function(train_df, formula, forced_vars = NULL, size = 1,
     var_combn <- combn(candidate_vars, i, simplify = FALSE)
     var_combn <- map(var_combn, ~ c(forced_vars, .))  # add forced vars
     
+    best_r_squared <- 0
     for (j in 1:length(var_combn)) {
       # Find best model with i candidate variables
       fit.dm_columns <- ftr_df %>% 
@@ -89,15 +90,26 @@ best_subset <- function(train_df, formula, forced_vars = NULL, size = 1,
       
       fit.lm <- lm(log(wh) ~ . + 0, data = fit.train_df)  # + 0 because intercept in design matrix
       
-      best_list[[length(best_list) + 1]] <- 
+      fit.r_squared <- summary(fit.lm)$r.squared
+      
+      list_idx <- length(best_list) + 1
+      
+      if (fit.r_squared > best_r_squared) {
+        best_fit <- fit.lm
+        best_r_squared <- fit.r_squared
+        best_idx <- list_idx
+      }
+      
+      best_list[[list_idx]] <- 
         tibble(n_vars = i,
                combn = j,
                vars = list(var_combn[[j]]),
-               r_squared = summary(fit.lm)$r.squared,
+               r_squared = fit.r_squared,
                aic = AIC(fit.lm),
-               bic = BIC(fit.lm),
-               loocv = mean((residuals(fit.lm)/(1 - hatvalues(fit.lm)))^2))
+               bic = BIC(fit.lm))
     }
+    best_list[[best_idx]]$loocv = 
+      mean((residuals(best_fit)/(1 - hatvalues(best_fit)))^2)
   }
   end_time <- Sys.time()
   time_diff <- end_time - start_time
