@@ -55,24 +55,33 @@ load_all_data <- function(attribute_file, qh_path, building_list_file,
            temperature_lag_288 = lag(temperature, 288),
            temperature_max = slide_dbl(temperature, max, .size = 96),
            temperature_min = slide_dbl(temperature, min, .size = 96),
-           temperature_avg = slide_dbl(temperature, mean, .size = 288),
-           wh_lag_96 = lag(wh, 96),
-           wh_lag_192 = lag(wh, 192),
-           wh_lag_672 = lag(wh, 672)) %>% 
-    ungroup() %>% 
-    na.omit() %>% 
-    filter(assettype_uid == 9,  # Office buildings. Not including 5 - different type.
-           state %in% c("ACT", "NSW", "QLD", "SA", "VIC", "WA"),  # Australia only
-           wh > 0,
-           wh < 50) # Remove obvious outliers
+           temperature_avg = slide_dbl(temperature, mean, .size = 288))
   
   if (business_days) {
     cat("Filtering for business days...\n\n")
     all_data <- filter_business_days(all_data, outlier_file)
+    
+    # Add demand lags. Weekend demand values not used.
+    all_data <- all_data %>%
+      group_by(bid) %>% 
+      mutate(wh_lag_96 = lag(wh, 96),
+             wh_lag_192 = lag(wh, 96*2),
+             wh_lag_672 = lag(wh, 96*5))
+  } else {
+    # Add demand lags. Weekend demand values not used.
+    all_data <- all_data %>%
+      group_by(bid) %>% 
+      mutate(wh_lag_96 = lag(wh, 96),
+             wh_lag_192 = lag(wh, 96*2),
+             wh_lag_672 = lag(wh, 96*7))
+
   }
   
-  # anonymise
-  all_data <- select(all_data, -name)
+  # Remove NAs and anonymise
+  all_data <- all_data %>% 
+    ungroup() %>% 
+    na.omit() %>% 
+    select(-name)
   
   all_data
 }
