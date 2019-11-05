@@ -929,7 +929,7 @@ ggplot() +
 (ref:cumulative-impact-dx) Cumulative energy impact after removing DX system. We can see that the cumulative change in energy consumption steadily decreases indicating buildings without DX systems are more efficient.
 
 ```{r cumulative-impact-dx, fig.cap="(ref:cumulative-impact-dx)"}
-scenario_vars <- c("Original building", "Switch to DX system")
+scenario_vars <- c("Original building", "Switch from DX system")
 
 p_df <- model_df %>%
   select(period, fcst_date, scenarios) %>%
