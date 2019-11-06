@@ -166,10 +166,6 @@ if (!file.exists(all_data_file)) {
   load(all_data_file)
 }
 
-# Filter problem data
-main_df <- main_df %>%
-  filter(!(bid == "BID0059" & year(date) == 2017 & month(date) %in% 6:7)) # flat readings
-
 # Calculate other variables
 n_buildings <- length(unique(main_df$bid))
 fcst_test_dates <- as_date(intersect(fcst_test_dates, unique(main_df$date)))
