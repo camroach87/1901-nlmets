@@ -42,10 +42,13 @@ load_all_data <- function(attribute_file, qh_path, building_list_file,
            state %in% c("ACT", "NSW", "QLD", "SA", "VIC", "WA"),  # Australia only
            wh > 0, # Remove obvious outliers
            wh < 25) %>%  
-    as_tsibble(key = id(bid), index = ts) %>% 
-    fill_gaps() %>% 
-    group_by(bid) %>% 
-    fill(everything(), .direction = "down") %>% 
+    as_tsibble(key = id(bid), index = ts) %>%
+    fill_gaps() %>%
+    group_by(bid) %>%
+    # Exclude wh to avoid prolonged stretches where no data is available for a
+    # building (gap in service). Can cause issues with model.matrix. These
+    # missing stretches will be filtered out by na.omit().
+    fill(-wh, .direction = "down") %>%
     mutate(temperature_lag_12 = lag(temperature, 12),
            temperature_lag_24 = lag(temperature, 24),
            temperature_lag_48 = lag(temperature, 48),
