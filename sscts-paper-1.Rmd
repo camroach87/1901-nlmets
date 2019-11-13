@@ -730,8 +730,10 @@ fs_df %>%
   mutate(
     selected = if_else(n_selected > 0, TRUE, FALSE),
     predictor_type = case_when(
-      str_detect(vars, "^scaled_temperature") ~ "Temperature",
-      str_detect(vars, "^scaled_wh") ~ "Demand",
+      str_detect(vars, "^scaled_temperature$") ~ "Forced variable",
+      str_detect(vars, "^scaled_temperature_lag") ~ "Temperature lags",
+      str_detect(vars, "^scaled_temperature_(?!lag)") ~ "Temperature statistic",
+      str_detect(vars, "^scaled_wh_lag") ~ "Demand lags",
       TRUE ~ "Other"
     )
   ) %>%
@@ -1047,8 +1049,10 @@ fs_df %>%
     selected = tidyr::replace_na(selected, FALSE),
     vars = fct_rev(factor(vars, levels = predictor_vars)),
     predictor_type = case_when(
-      str_detect(vars, "^scaled_temperature") ~ "Temperature",
-      str_detect(vars, "^scaled_wh") ~ "Demand",
+      str_detect(vars, "^scaled_temperature$") ~ "Forced variable",
+      str_detect(vars, "^scaled_temperature_lag") ~ "Temperature lags",
+      str_detect(vars, "^scaled_temperature_(?!lag)") ~ "Temperature statistic",
+      str_detect(vars, "^scaled_wh_lag") ~ "Demand lags",
       TRUE ~ "Other"
     )
   ) %>%
