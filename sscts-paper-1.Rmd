@@ -59,6 +59,9 @@ knitr::write_bib(c("base", "lme4"),
   width = 60
 )
 
+
+set.seed(123412)
+
 # furrr/future settings
 plan(multicore, workers = 11) # number of cpus
 options(future.globals.maxSize = 850 * 1024^2) # increase limit to 850 Mb
@@ -301,7 +304,7 @@ Buildings are typically equipped with smart meters to measure demand at regular 
 
 # Introduction
 
-Several papers have examined forecasting electricity demand for buildings by fitting separate models to each building [@Ghofrani2011-tb; @Gajowniczek2014-ek; @Arora2016-zh; @Ben_Taieb2016-wl]. While some have attempted to improve forecasts by leveraging the hierarchical nature of electricity demand [@Ben_Taieb2017-it; @Ben_Taieb2016-ok] few, if any, have explored improving forecast accuracy using a mixed effects framework. If buildings behave in a similar manner a well-specified mixed model may produce more accurate forecasts than individual models. Furthermore, a mixed-model framework allows us to quantify differences between buildings which would not otherwise be possible when using a "building-specific" modelling approach. A mixed effects approach opens the door to scenario analyses by allowing us to estimate how demand might change under different equipment or usage scenarios.
+Several papers have examined forecasting electricity demand for buildings by fitting separate models to each building [@Ghofrani2011-tb; @Gajowniczek2014-ek; @Arora2016-zh; @Ben_Taieb2016-wl]. While some have attempted to improve forecasts by leveraging the hierarchical nature of electricity demand [@Ben_Taieb2017-it; @Ben_Taieb2017-ok] few, if any, have explored improving forecast accuracy using a mixed effects framework. If buildings behave in a similar manner a well-specified mixed model may produce more accurate forecasts than individual models. Furthermore, a mixed-model framework allows us to quantify differences between buildings which would not otherwise be possible when using a "building-specific" modelling approach. A mixed effects approach opens the door to scenario analyses by allowing us to estimate how demand might change under different equipment or usage scenarios.
 
 This paper explores how electricity forecasting accuracy can be improved by using mixed effects models. We examine if mixed models can produce forecasts as accurately as separate models fit for each subject. We approach the problem in the context of producing one-day ahead forecasts of electricity demand for `r n_buildings` commercial office buildings in Australia. When working with mixed effects models, each building is treated as a random effect and building characteristics are treated as fixed effects. We attempt to model the relationship between temperature and demand using both linear and spline based methods.
 
@@ -323,7 +326,7 @@ This paper is structured as follows. Section \@ref(data) describes the data we a
 
 # Data
 
-We have time series and attribute data for `r n_buildings` commercial office buildings located across Australia. We focus on business days only in our analysis as these are significantly more important than non-business days for energy management. Non-business days typically have far less demand than business days as equipment is non-operational. Note that our approach can be applied to non-business days as well.
+We have time series and attribute data for `r n_buildings` commercial office buildings located across Australia. We focus on business days in our analysis as these are significantly more important than non-business days for energy management. Non-business days typically have far less demand than business days as equipment is non-operational. Note that our approach can be applied to non-business days as well.
 
 ## Time series data
 
@@ -471,7 +474,7 @@ The simplest benchmark is a naive forecasting model, where the previous day's va
 $$
   y_{t} = y_{t-24 \text{ hours}} + \epsilon_{t}, \quad \epsilon_{t} \sim N(0,\sigma^2).
 $$
-Note that since we have restricted ourselves to business days only, $t-24 \text{ hours}$ is a slight abuse of notation and is used to represent the observed values from the last _business_ day. So a forecast for Monday will use observed values from the previous Friday. Using observed values from Sunday would produce a much weaker benchmark due to different demand dynamics on working and non-working days.
+Note that since we have restricted ourselves to business days, $t-24 \text{ hours}$ is a slight abuse of notation and is used to represent the observed values from the last _business_ day. So a forecast for Monday will use observed values from the previous Friday. Using observed values from Sunday would produce a much weaker benchmark due to different demand dynamics on working and non-working days.
 
 #### Individual linear regression model
 
@@ -479,7 +482,7 @@ A simple benchmark model is created by fitting a linear regression model to each
 $$
 \log y_{t} = \beta_{0,p} + \beta_{1,p} w_{0,t} + \epsilon_{t}, \quad \epsilon_{t} \sim N(0,\sigma^2_{p}),
 $$
-where $p$ is the 15-minute period of the day at time $t$, $w_{0,t}$ is the scaled temperature experienced^[The 0 subscript denotes no lag and is included to keep notation consistent with Table \@ref(tab:weather-vars).] at time $t$ and $\epsilon_{t}$ is the residual. We call these our "Individual Linear Regression" (ILR) models.
+where $p$ is the 15-minute period of the day at time $t$, $w_{0,t}$ is the scaled temperature experienced^[The 0 subscript denotes no lag and is consistent with Table \@ref(tab:weather-vars) with the building subscript dropped.] at time $t$ and $\epsilon_{t}$ is the residual. We call these our "Individual Linear Regression" (ILR) models.
 
 #### Individual natural spline model
 
@@ -498,7 +501,7 @@ We use natural splines with three degrees of freedom as our smooth functions. Kn
 
 
 \begin{table}[t]
-\caption{\label{tab:weather-vars} Predictor variables evaluated during feature selection stage when determining $\mathcal{P}_t$.}
+\caption{\label{tab:weather-vars} Predictor variables evaluated during feature selection when determining $\mathcal{P}_t$.}
 
 \centering
 \begin{tabular}{lllll}
@@ -552,7 +555,7 @@ f_{i,p}(x) = \sum^K_{k=1} \beta_{i,p,k} (x - \kappa_k)_+^3,
 $$
 where variables are defined as for the INS model. An additional fixed effect $\beta_{b,p}$ has been added to account for differences in each building's consumption. This effectively acts as a dummy variable. We call this our pooled regression (PR) model.
 
-We do not estimate a separate smooth relationship between weather variables and demand for each building in the pooled model. Instead, we estimate the population's relationship. So, for the $i$^th^ predictor we construct a smooth function $f_{i,p}$ for all buildings instead of a set of smooth functions $f_{b,i,l}$ for each building.
+We do not estimate a separate smooth relationship between weather variables and demand for each building in the pooled model. Instead, we estimate the population's relationship. So, for the $i$^th^ predictor we construct a smooth function $f_{i,p}$ for all buildings instead of a set of smooth functions $f_{b,i,p}$ for each building.
 
 ### Mixed models
 
@@ -560,7 +563,7 @@ Having specified our framework for fitting separate models to each building it i
 
 Originally, random effects were incorporated into each of the lagged weather variables, but this resulted in very poor fits presumably due to the high dimensionality. Instead, as with the PR model, we model the population relationship for all selected predictor variables and allow for subject-specific differences using random intercepts, random slopes and subject-specific curves (based on current temperature).
 
-In the notation that follows we include subscripts $b$ to denote each building. Unlike the individual models above, which had separate models fit to each building, all buildings are used when training the mixed effects models and so we include an additional subscript to denote this. Again, to capture changing demand characteristics across the day, separate models are fit for each 15-minute period of the day giving 96 models for each mixed effects formulation.
+As with the PR model, we include subscripts $b$ to denote each building. Unlike the individual formulations, which had separate models fit to each building, all buildings are used when training the mixed effects models and so we include an additional subscript to denote this. Again, to capture changing demand characteristics across the day, separate models are fit for each 15-minute period of the day giving 96 models for each mixed effects formulation.
 
 #### Random intercept model
 
@@ -633,9 +636,9 @@ Numerous studies have already shown the link between electricity demand and curr
   * As temperature is strongly correlated with recent values there were occasions when the current temperature would not be selected but a slightly lagged variable would be. This seemed unrealistic and was likely caused by noise in the data rather than a lagged temperature being a better predictor than actual temperature.
   * Forcing current temperature to be included reduced the number of feature combinations to search through by a factor of 2.
 
-We use the pooled linear regression model for feature selection as it is quick to fit using ordinary least squares and allows us to model buildings by using a dummy variable for each. Using a linear model also has the advantage of allowing us to efficiently compute the leave-one-out cross-validation (LOOCV) scores [@Seber2012-gu]. Training data is comprised of business days within a window of `r fcst_train_window` days prior to the month we wish to select variables for. As our experimental setup for the validation phase involves one-day ahead forecasts, this variable selection prevents us from using any data from the future. For example, when forecasting for any date in January, only data from the months of October, November and December would have been used to select predictors.
+We use the pooled linear regression model for feature selection as it is quick to fit using ordinary least squares and allows us to model buildings by using a dummy variable for each. Using a linear model also has the advantage of allowing us to efficiently compute the leave-one-out cross-validation (LOOCV) scores [@Seber2012-gu]. Training data is comprised of business days within a window of `r fcst_train_window` days prior to the month we wish to select variables for. As our experimental setup for the validation phase involves one-day ahead forecasts, this variable selection prevents us from using any data from the future. For example, when forecasting for any date in January, only data from the months preceding January would have been used to select predictors.
 
-We use best subset selection during feature selection. So, given $p$ predictors we choose the combination of these that produce the best $R^2$ scores. Once the best model based on $R^2$ has been determined for each set of $p$ predictors, we use the LOOCV score to determine the best. The LOOCV score is chosen as it gives an estimate of the out of sample performance of our models. Figure \@ref(fig:fs-model-selection) shows the LOOCV scores for each predictor set of size $p$. During feature selection we chose to avoid greedy approaches such as forward or backward stepwise selection; or approaches that work systematically through lagged weather variables [@Hyndman2010-ui]. Naturally, greedy methods have computational benefits, but it is interesting to observe which features are chosen when _all_ possible predictor combinations are assessed.
+We use best subset selection during feature selection. Given $p$ predictors we choose the combination of these that produce the best $R^2$ scores. Once the best model based on $R^2$ has been determined for each set of $p$ predictors, we use the LOOCV score to determine the overall best. The LOOCV score is chosen as it gives an estimate of the out of sample performance of our models. Figure \@ref(fig:fs-model-selection) shows the LOOCV scores for each predictor set of size $p$. During feature selection we chose to avoid greedy approaches such as forward or backward stepwise selection; or approaches that work systematically through lagged weather variables [@Hyndman2010-ui]. Naturally, greedy methods have computational benefits, but it is interesting to observe which features are chosen when _all_ possible predictor combinations are assessed.
 
 A key point to note is that feature selection was done on the weather variables and _not_ the spline basis functions. Doing so would destroy the properties of a spline if only a subset of its basis functions were to be selected.
 
@@ -692,11 +695,11 @@ In order to build a better understanding of how a mixed model framework improves
 
 Figure \@ref(fig:fs-alpha) show the selected variables for summer and winter including shoulder months for each. These plots show the number of times each feature was selected for the months comprising the extended season for each 15-minute model. There is a lot of variation in the selected predictors, even between adjacent 15-minute periods. However, when we overlay similar months we do start to observe some structure. Perhaps the most noticeable characteristic is that temperature variables are selected more often during business hours, which shows the influence temperature has on demand during the day. Outside of these hours we see fewer temperature variables selected. Another point of interest is that during business hours, demand lagged by 2 days is not selected as often. However, non-business hours do have demand lagged by 2 days selected. It appears as though serial correlation in the demand time series is a more useful predictor during non-business hours than temperature variables. Thermal inertia does not appear to influence demand as much during non-business hours.
 
-It is difficult to observe clear differences between the extended summer and winter periods due to the amount of variance in the chosen variables. However, the maximum temperature over the last 24 hours seems to be more consistently selected during business hours in summer. This seems reasonable as high temperatures in summer will result in additional office cooling.
+<!-- It is difficult to observe clear differences between the extended summer and winter periods due to the amount of variance in the chosen variables. However, the maximum temperature over the last 24 hours seems to be more consistently selected during business hours in summer. This seems reasonable as high temperatures in summer will result in additional office cooling. -->
 
 For reference, Appendix \@ref(feature-selection-for-all-months) contains feature selection plots for each of the months laid out individually.
 
-(ref:fs-alpha) Feature selection for summer and winter including shoulder months.
+(ref:fs-alpha) Feature selection for summer and winter including shoulder months. Each variable has been coloured based on the type of variable. Scaled temperature is automatically included.
 
 ```{r fs-alpha, fig.cap="(ref:fs-alpha)", fig.height=7*1.4}
 fs_df %>%
@@ -760,7 +763,7 @@ fs_df %>%
 
 ## Forecasting accuracy
 
-Table \@ref(tab:accuracy-results) shows the MAE, MAPE, sMAPE and MASE for each model across the entire day, during business hours (7:00 am to 7:00 pm) and during non-business hours (7:00 pm to 7:00 am). The INS models have the worst forecasting accuracy across all metrics. This is likely due to overfitting - the natural splines are too flexible for some of the buildings with the amount of data used for training. Evidence of this can be seen in Figure \@ref(fig:one-day-ahead-forecast) where erratic spikes in the predicted demand can be seen. When moving to a mixed effects model that uses natural splines the predictive accuracy is greatly improved. The SSC and SSCATTR models consistently outperform all other models.
+Table \@ref(tab:accuracy-results) shows the MAE, MAPE, sMAPE and MASE for each model across the entire day, during business hours (7:00 am to 7:00 pm) and during non-business hours (7:00 pm to 7:00 am). The INS models have the worst forecasting accuracy across all metrics. This is likely due to overfitting - the natural splines are too flexible for some of the buildings with the amount of data used for training. Evidence of this can be seen in Figure \@ref(fig:one-day-ahead-forecast) where erratic spikes in the predicted demand can be seen. When moving to a mixed effects model that uses natural splines the predictive accuracy is greatly improved. The SSC and SSCATTR models consistently outperform all other models across all metrics.
 
 <!-- Importantly, accuracy further increases when building attributes are included as fixed effects in the SSCATTR model. -->
 
@@ -799,9 +802,9 @@ accuracy_df %>%
   kableExtra::group_rows("Non-business hours", 17, 24)
 ```
 
-(ref:one-day-ahead-forecast-cap) One-day ahead forecasts for `r format(p_one_day_ahead_date, "%d %B, %Y")`.
+(ref:one-day-ahead-forecast-cap) One-day ahead forecasts for `r format(p_one_day_ahead_date, "%d %B, %Y")`. The dashed black line shows the actual observed values for this day. The INS models often show erratic jumps due to overfitting.
 
-```{r one-day-ahead-forecast, fig.cap="(ref:one-day-ahead-forecast-cap)", fig.height=7*1.4}
+```{r one-day-ahead-forecast, fig.cap="(ref:one-day-ahead-forecast-cap)", fig.height=8*1.4}
 model_df %>%
   filter(fcst_date == p_one_day_ahead_date) %>%
   unnest(preds) %>%
@@ -817,7 +820,9 @@ model_df %>%
     y = expression(Normalised ~ electricity ~ (Wh / m^2)),
     x = "Date",
     colour = "Model"
-  )
+  ) +
+  scale_x_datetime(date_labels = "%H:%M") +
+  theme(legend.position = "bottom")
 ```
 
 ## Diebold-Mariano test
@@ -904,7 +909,7 @@ Here we perform a one-sided Diebold-Mariano test [@Diebold2002-ru] to determine 
 
 ## Scenario analysis
 
-Having confirmed that our mixed models produce satisfactory predictions compared to individual provides us with justification for using them for scenario analysis. We can investigate how changing certain variable values increases or decreases energy demand in buildings. We fit the SSCATTR model on all training data before producing predictions. This is an ex-post forecasting scenario since we are using known data for our predictor variables when predicting demand.
+Having confirmed that our mixed models produce satisfactory predictions compared to individual models provides us with justification for using them for scenario analysis. We can assess how changing certain variable values increases or decreases energy demand in buildings.
 
 We will now show an example of producing scenario analysis for one of our buildings using this model. Building `r scenario_bid` has the attributes listed in Table \@ref(tab:attributes-scenario-bid). If any of the attribute values are modified and then the expected energy consumption is recalculated, we can take the difference between the original predictions to estimate how energy demand will change. Figure \@ref(fig:attribute-changes) shows how expected demand changes when we vary building attributes for several days in January. Figure \@ref(fig:cumulative-impact-dx) shows the cumulative change in energy consumption if the building were to switch away from using a DX system. These normalised energy savings (or increases) can then be converted to a dollar figure by simply multiplying by the net lettable area of the building and the appropriate electricity tariffs. Such an approach allows us to quantify the expected savings, both financially and in terms of energy consumption, allowing for better decision making when it comes to building management and retrofits.
 
@@ -1008,7 +1013,7 @@ ggplot(mapping = aes(x = ts, y = Wh)) +
 
 This paper explores the possibility of using mixed effects models in a forecasting role. We first specified several different models. A best subset selection approach was proposed to determine which predictor variables should be used. Feature selection was carried out for each month of the year and 15-minute period of the day, which allowed us to observe how the importance of lagged temperature and demand variables changed throughout the day.
 
-We fit models to `r n_buildings` buildings across Australia. Separate models for each building were fitted as a benchmark. The overall predictive power of several random effects model and mixed effects model were assessed against this benchmark. One-day ahead forecasts were produced for business days over a year using all forecast methods. Based on the MAE, MAPE, sMAPE and MASE scores of each model the SSCATTR model performed best. We concluded that moving towards a mixed model approach improved predictive power and also had the additional advantage of allowing us to include fixed effects which could be used for scenario analyses.
+We fit models to `r n_buildings` buildings across Australia. Separate models for each building were fitted as a benchmark. The overall predictive power of several mixed effects models were assessed against this benchmark. One-day ahead forecasts were produced for business days over a year using all forecast methods. Based on the MAE, MAPE, sMAPE and MASE scores of each model the SSC and SSCATTR models performed best. We concluded that moving towards a mixed model approach improved predictive power and also had the additional advantage of allowing us to include fixed effects which could be used for scenario analyses.
 
 Finally, we included an example of using the SSCAR model for scenario analysis for one of the buildings in our data set. The expected change in electricity demand was plotted when several of the attributes were varied. The expected change in consumption over the course of one workweek when a building moved away from using a DX system allowed us to quantify the potential savings in energy. Analyses such as these have applications for decision makers and facility managers that wish to understand the effectiveness of changes in building management or potential retrofits of equipment.
 
@@ -1026,7 +1031,7 @@ Figure \@ref(fig:fs-all-periods-months) shows selected variables for all months 
 
 (ref:fs-all-periods-months) Selected features for each month of the year.
 
-```{r fs-all-periods-months, fig.cap="(ref:fs-all-periods-months)", fig.height = 7*1.4}
+```{r fs-all-periods-months, fig.cap="(ref:fs-all-periods-months)", fig.height = 8*1.4}
 fs_df %>%
   select(period, month, vars) %>%
   unnest() %>%
@@ -1068,7 +1073,8 @@ fs_df %>%
   ) +
   theme(
     panel.grid.major = element_blank(),
-    panel.grid.minor = element_blank()
+    panel.grid.minor = element_blank(),
+    legend.position = "bottom"
   ) +
   scale_x_continuous(breaks = seq(8, 96, 8))
 ```
