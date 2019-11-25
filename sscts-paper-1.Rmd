@@ -334,12 +334,12 @@ Smart meter data recorded at 15-minute intervals for `r n_buildings` buildings i
 
 The relationship between current temperature and electricity demand is shown in Figure \@ref(fig:temp-wh-scatter) for four buildings. We can see a clear difference in this relationship for the working and non-working periods. Furthermore, this relationship varies between each building. Note that when splines are fitted independently for each building they are very sensitive to outliers or data at domain extremes. This can be seen for building BID0052A at midnight (period 96) where a single observation with relatively high demand at the highest temperature results in the fitted spline increasing rapidly (and possibly unrealistically). This partly motivates our use of mixed effects models where data from multiple buildings can be used to fit these relationships resulting in models that are more robust to outliers or sparse data at extremes.
 
-One issue that arises from only including business days in our analysis is that there is a gap between the Friday and Monday in the demand time series. As we are including one-day lagged demand as one of our predictors, observed values on Monday will use Friday demand values as their one-day lagged demand (and similarly for two-day lagged demand variables). If this weren't done and we instead used non-working days, a very different relationship between Monday's lagged demand variables and current demand would be observed compared to other weekdays.
+One issue that arises from only including business days is the gap between Friday and Monday in our demand time series. As we are including one-day lagged demand as one of our predictors, observed values on Monday will use Friday demand values as their one-day lagged demand (and similarly for two-day lagged demand variables). If this weren't done and we instead used non-working days, a very different relationship between Monday's lagged demand variables and current demand would be observed compared to other weekdays.
 
 Unlike lagged demand variables, which are used to capture operational changes in a building, lagged temperature variables are used to capture thermal inertia. Thermal inertia is residual heat energy that remains in a building after a run of warm weather (or conversely for cold water). For example, if several warm days occur sequentially, the expected demand can increase as more cooling is typically required to maintain indoor environment quality. Hence, lagged temperature variables are based off all days - not just working days. Monday's lagged temperature variables will include temperatures observed over the weekend.
 
 
-(ref:wh-line-cap) Normalised electricity demand for four commercial office buildings in Australia on `r format(fcst_test_dates[5], "%B %d, %Y")`. Only one day of data is shown although it is enough to see clear differences in the demand profiles. Some buildings show significantly more volatility in their demand when compared to others.
+(ref:wh-line-cap) Normalised electricity demand of four commercial office buildings in Australia on `r format(fcst_test_dates[5], "%B %d, %Y")`. Only one day of data is shown although it is enough to see clear differences in the demand profiles. Some buildings show significantly more volatility in their demand when compared to others.
 
 ```{r wh-line, fig.cap="(ref:wh-line-cap)"}
 main_df %>%
@@ -354,7 +354,9 @@ main_df %>%
   )
 ```
 
-```{r temp-wh-scatter, fig.cap="Relationship between temperature and electricity demand for four Australian office buildings during Summer. Data at four different 15-minute periods of the day are shown. We can see a clear change in the relationship of our predictor and response variables both between buildings and at different times of the day."}
+(ref:temp-wh-scatter) Relationship between temperature and electricity demand of four Australian office buildings during Summer. Data at four different 15-minute periods of the day are shown. We can see a clear change in the relationship of our predictor and response variables both between buildings and at different times of the day.
+
+```{r temp-wh-scatter, fig.cap="(ref:temp-wh-scatter)"}
 
 plot_bids <- c(sample(unique(main_df$bid), 3), "BID0052A")
 plot_periods <- c(24, 48, 72, 96)
@@ -470,7 +472,7 @@ Individual models serve as benchmark models to determine if moving to a mixed mo
 
 #### Naive forecast model
 
-The simplest benchmark is a naive forecasting model, where the previous day's values are used. This is often a surprisingly effective forecasting approach [@Hyndman2018-ok]. The demand for a building at time $t$ is given by
+The simplest benchmark is a naive forecasting model, where the previous day's values are used. This is often a surprisingly effective forecasting approach [@Hyndman2018-ok]. The demand of a building at time $t$ is given by
 $$
   y_{t} = y_{t-24 \text{ hours}} + \epsilon_{t}, \quad \epsilon_{t} \sim N(0,\sigma^2).
 $$
@@ -478,7 +480,7 @@ Note that since we have restricted ourselves to business days, $t-24 \text{ hour
 
 #### Individual linear regression model
 
-A simple benchmark model is created by fitting a linear regression model to each building and period of the day. The demand for a building at time $t$ is given by
+A simple benchmark model is created by fitting a linear regression model to each building and period of the day. The demand of a building at time $t$ is given by
 $$
 \log y_{t} = \beta_{0,p} + \beta_{1,p} w_{0,t} + \epsilon_{t}, \quad \epsilon_{t} \sim N(0,\sigma^2_{p}),
 $$
@@ -546,7 +548,7 @@ $y_{b,672,t}$ & 672 & Scaled actual demand lagged by 1 week. \\
 
 ### Pooled regression model
 
-Our pooled regression model is fit using data from all buildings. One model is fit for each 15-minute period of the day which is then used to predict demand for each building $b$ at time $t$. Note that since all buildings are included in the model, we introduce the $b$ subscript for buildings. In addition to testing this model's forecasting capability we will also use it to perform feature selection in Section \@ref(feature-selection) as it is much faster to train than mixed effects models. Since buildings are treated as fixed effects we can use ordinary least squares to quickly fit the model. Demand for building $b$ at time $t$ is given by
+Our pooled regression model is fit using data from all buildings. One model is fit for each 15-minute period of the day which is then used to predict demand of each building $b$ at time $t$. Note that since all buildings are included in the model, we introduce the $b$ subscript for buildings. In addition to testing this model's forecasting capability we will also use it to perform feature selection in Section \@ref(feature-selection) as it is much faster to train than mixed effects models. Since buildings are treated as fixed effects we can use ordinary least squares to quickly fit the model. The demand of building $b$ at time $t$ is given by
 $$
 \begin{gathered}
 \log y_{b,t} = \sum_{x_{b,i,t} \in \mathcal{P}_t } f_{i,p}(x_{b,i,t}) + \beta_{b,p}+ \epsilon_{b,t}, \quad \epsilon_{b,t} \sim N(0, \sigma^2_{p}), \\
@@ -929,7 +931,7 @@ main_df %>%
   kableExtra::kable_styling()
 ```
 
-(ref:attribute-changes) Expected normalised electricity consumption for three days in January, 2017 for building `r scenario_bid`. The expected demand for the existing building is shown ("Original building"), as well as four scenarios each of which involves the modification of one of the attributes. The grey line show the actual demand observed on each day.
+(ref:attribute-changes) Expected normalised electricity consumption for three days in January, 2017 for building `r scenario_bid`. The expected demand of the existing building is shown ("Original building"), as well as four scenarios each of which involves the modification of one attribute. The grey line show the actual demand observed on each day.
 
 ```{r attribute-changes, fig.cap="(ref:attribute-changes)"}
 p_data <- model_df %>%
