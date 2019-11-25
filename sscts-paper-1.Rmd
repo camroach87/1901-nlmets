@@ -661,7 +661,8 @@ fs_df %>%
     x = "Number of variables",
     y = "LOOCV scores",
     colour = "Period"
-  )
+  ) + 
+  scale_x_continuous(breaks=c(0,3,6,9,12))
 ```
 
 
