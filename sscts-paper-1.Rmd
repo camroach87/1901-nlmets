@@ -776,10 +776,6 @@ Given the SSC and SSCATTR models outperform each of our benchmarks it seems reas
 
 ```{r accuracy-results}
 accuracy_df %>%
-  rename(
-    Model = model, MAE = mae, MAPE = mape, sMAPE = smape,
-    MASE = mase
-  ) %>%
   mutate_if(is.numeric, list(~ as.character(signif(., 4)))) %>%  # scientific notation for INS and decimals for all others
   group_by(working_hours) %>% 
   # mutate(MASE = kableExtra::cell_spec(
@@ -792,7 +788,10 @@ accuracy_df %>%
   #                           bold = if_else(. == min(.), T, F))
   # ) %>% 
   ungroup() %>% 
-  select(-working_hours) %>% 
+  select(
+    Model = model, MAE = mae, MAPE = mape, sMAPE = smape,
+    MASE = mase
+  ) %>% 
   knitr::kable(
     format = "latex",
     booktabs = TRUE,
@@ -864,7 +863,7 @@ Here we perform a one-sided Diebold-Mariano test [@Diebold2002-ru] to determine 
   )) %>%
   rename(
     Period = period, `DM statistic` = dm_statistic,
-    `P-value` = dm_p_value, Significance = significance
+    `p-value` = dm_p_value, Significance = significance
   ) %>%
   knitr::kable(
     format = "latex",
