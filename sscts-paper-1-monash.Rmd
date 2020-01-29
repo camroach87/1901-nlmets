@@ -1,22 +1,33 @@
 ---
 title: "Subject-specific curves for time series forecasting of smart meter demand"
-author: "Cameron Roach^[Corresponding author. E-mail address: cameron.roach@monash.edu (C. Roach).], Rob Hyndman, Souhaib Ben Taieb"
-fontsize: 11pt
-papersize: a4
+author:
+- familyname: Roach
+  othernames: Cameron
+  address: Monash University
+  email: cameron.roach@monash.edu
+  correspondingauthor: true
+- familyname: Hyndman
+  othernames: Rob
+  address: Monash University
+- familyname: Taieb
+  othernames: Souhaib Ben
+  address: University of Mons
+keywords: "time series forecasting, mixed-effects models, smart meters, energy, electricity"
+wpnumber: 1/19
+jelcodes: C10,C14,C22
+blind: false
+cover: true
+toc: false
 bibliography: ["library.bib", "packages.bib"]
 biblio-style: authoryear-comp
-subparagraph: true
-toc: false
-header-includes:
-  - \usepackage[left]{lineno}
-  - \linenumbers
 output:
-  bookdown::pdf_document2:
-  # MonashEBSTemplates::workingpaper:
+  MonashEBSTemplates::workingpaper:
     fig_caption: yes
     fig_height: 5
     fig_width: 8
-    keep_tex: no
+    # includes:
+    #   in_header: preamble.tex
+    keep_tex: yes
     number_sections: yes
     citation_package: biblatex
 ---
@@ -649,7 +660,7 @@ A key point to note is that feature selection was done on the weather variables 
 ```{r fs-model-selection, fig.cap = "(ref:fs-model-selection)"}
 fs_df %>%
   select(month, period, features) %>%
-  unnest() %>%
+  unnest(cols = c(features)) %>%
   select(month, period, n_vars, loocv) %>%
   mutate(month = month(month, label = TRUE)) %>%
   ggplot(aes(y = loocv, x = n_vars, colour = period, group = period)) +
@@ -707,7 +718,7 @@ For reference, Appendix \@ref(feature-selection-for-all-months) contains feature
 ```{r fs-alpha, fig.cap="(ref:fs-alpha)", fig.height=7*1.4}
 fs_df %>%
   select(period, month, vars) %>%
-  unnest() %>%
+  unnest(cols = c(vars)) %>%
   mutate(
     selected = TRUE,
     month = month(month, label = TRUE)
@@ -809,7 +820,7 @@ accuracy_df %>%
 ```{r one-day-ahead-forecast, fig.cap="(ref:one-day-ahead-forecast-cap)", fig.height=8*1.4}
 model_df %>%
   filter(fcst_date == p_one_day_ahead_date) %>%
-  unnest(preds) %>%
+  unnest(cols = c(preds)) %>%
   # filter(bid %in% sample(unique(bid), 3),
   #        fcst_date %in% (dmy("13/3/2017")+0:4)) %>%
   filter(bid %in% sample(unique(bid), 6)) %>%
@@ -834,10 +845,10 @@ Here we perform a one-sided Diebold-Mariano test [@Diebold2002-ru] to determine 
 (ref:dm-test-periods-cap) Diebold-Mariano test to compare forecast accuracy of ILR and SSCATTR models. Alternative hypothesis is SSCATTR model is more accurate than ILR model. All periods tested separately. Only every fourth model falling on the hour is shown for legibility.
 
 ```{r dm-test-periods}
-  model_df %>%
-    filter(period %in% (1:24 * 4)) %>%
-    select(fcst_date, period, preds) %>%
-    unnest() %>%
+model_df %>%
+  filter(period %in% (1:24 * 4)) %>%
+  select(fcst_date, period, preds) %>%
+  unnest(cols = c(preds)) %>%
   select(fcst_date, period, bid, model, resid) %>%
   filter(model %in% c("ILR", "SSCATTR")) %>%
   spread(model, resid) %>%
@@ -938,7 +949,7 @@ p_data <- model_df %>%
   select(period, fcst_date, scenarios) %>%
   # filter(fcst_date %in% (ymd("2017-01-09") + 0:4)) %>%
   filter(fcst_date %in% scenario_dates[2:4]) %>%
-  unnest() %>%
+  unnest(cols = c(scenarios)) %>%
   filter(bid %in% scenario_bid)
 
 ggplot() +
@@ -965,7 +976,7 @@ scenario_vars <- c("Original building", "Switch from DX system")
 p_df <- model_df %>%
   select(period, fcst_date, scenarios) %>%
   filter(fcst_date %in% scenario_dates) %>%
-  unnest() %>%
+  unnest(cols = c(scenarios)) %>%
   filter(
     bid == scenario_bid,
     scenario %in% c("original", "dxsystem")
@@ -1036,7 +1047,7 @@ Figure \@ref(fig:fs-all-periods-months) shows selected variables for all months 
 ```{r fs-all-periods-months, fig.cap="(ref:fs-all-periods-months)", fig.height = 8*1.4}
 fs_df %>%
   select(period, month, vars) %>%
-  unnest() %>%
+  unnest(cols = c(vars)) %>%
   mutate(
     selected = TRUE,
     month = month(month, label = TRUE)
