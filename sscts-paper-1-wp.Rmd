@@ -649,7 +649,15 @@ Numerous studies have already shown the link between electricity demand and curr
   * As temperature is strongly correlated with recent values there were occasions when the current temperature would not be selected but a slightly lagged variable would be. This seemed unrealistic and was likely caused by noise in the data rather than a lagged temperature being a better predictor than actual temperature.
   * Forcing current temperature to be included reduced the number of feature combinations to search through by a factor of 2.
 
-We use the pooled linear regression model for feature selection as it is quick to fit using ordinary least squares and allows us to model buildings by using a dummy variable for each. Using a linear model also has the advantage of allowing us to efficiently compute the leave-one-out cross-validation (LOOCV) scores [@Seber2012-gu]. Training data is comprised of business days within a window of `r fcst_train_window` days prior to the month we wish to select variables for. As our experimental setup for the validation phase involves one-day ahead forecasts, this variable selection prevents us from using any data from the future. For example, when forecasting for any date in January, only data from the months preceding January would have been used to select predictors.
+We use the pooled linear regression model for feature selection as it is quick to fit using ordinary least squares and allows us to model buildings by using a dummy variable for each. Using a linear model also has the advantage of allowing us to efficiently compute the leave-one-out cross-validation (LOOCV) scores using [@Seber2012-gu]
+
+$$
+\text{CV} = \frac{1}{n} \sum_{i=1}^n \left(\frac{e_i}{1-h_i}\right)^2,
+$$
+
+where $e_i$ are the residuals of the model and $h_i$ are the diagonal elements of the hat-matrix $\mathbf{H} = \mathbf{X} \left( \mathbf{X}' \mathbf{X}  \right)^{-1} \mathbf{X}'$. 
+
+Training data is comprised of business days within a window of `r fcst_train_window` days prior to the month we wish to select variables for. As our experimental setup for the validation phase involves one-day ahead forecasts, this variable selection prevents us from using any data from the future. For example, when forecasting for any date in January, only data from the months preceding January would have been used to select predictors.
 
 We use best subset selection during feature selection. Given $p$ predictors we choose the combination of these that produce the best $R^2$ scores. Once the best model based on $R^2$ has been determined for each set of $p$ predictors, we use the LOOCV score to determine the overall best. The LOOCV score is chosen as it gives an estimate of the out of sample performance of our models. Figure \@ref(fig:fs-model-selection) shows the LOOCV scores for each predictor set of size $p$. During feature selection we chose to avoid greedy approaches such as forward or backward stepwise selection; or approaches that work systematically through lagged weather variables [@Hyndman2010-ui]. Naturally, greedy methods have computational benefits, but it is interesting to observe which features are chosen when _all_ possible predictor combinations are assessed.
 
@@ -690,12 +698,12 @@ If for a given 1-day ahead forecast a building had less than `r fcst_min_train_d
 
 To assess the forecasting accuracy of each of our models we use four common error metrics.
 
-  1. Mean absolute error (MAE).
-  2. Mean absolute percentage error (MAPE).
-  3. Symmetric mean absolute percentage error (sMAPE).
-  4. Mean absolute scaled error (MASE).
+1. Mean absolute error: $\text{MAE} = \text{mean} \left( | y_t - \hat{y}_t | \right)$.
+2. Mean absolute percentage error: $\text{MAPE} = \text{mean} \left( \left| \frac{100(y_t - \hat{y}_t)}{y_t} \right| \right)$.
+3. Symmetric mean absolute percentage error: $\text{sMAPE} = \text{mean} \left( \frac{200 |y_t - \hat{y}_t| }{y_t + \hat{y}_t} \right)$.
+4. Mean absolute scaled error: $\text{MASE} = \text{mean} \left( \left| \frac{y_t - \hat{y}_t}{ \text{mean} ( | y_t - y_{t-1} |)} \right| \right)$.
 
-These are all well established forecasting metrics. Advantages and disadvantages of each are well described in @Hyndman2006-bp.
+These are all well established forecasting metrics. Advantages and disadvantages of each are described in @Hyndman2006-bp.
 
 When comparing these metrics in Section \@ref(forecasting-accuracy), we find that the SSC and SSCATTR models produce the best point forecasts. To establish that this result is statistically significant we also carry out Diebold-Mariano tests against the ILR model in Section \@ref(diebold-mariano-test).
 
