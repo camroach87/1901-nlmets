@@ -12,11 +12,12 @@ author:
 - familyname: Taieb
   othernames: Souhaib Ben
   address: University of Mons
+abstract: Buildings are typically equipped with smart meters to measure demand at regular intervals. Smart meter data for a single building has many uses, such as forecasting and assessing overall building performance. However, when data is available from multiple buildings, smart meter data can have additional uses which are rarely explored. For instance, we can explore how different building characteristics influence energy demand. If each building is treated as a random effect and building characteristics are handled as fixed effects, a mixed effects model can be used to estimate how characteristics affect energy usage. In this paper we demonstrate that producing one-day ahead demand predictions for 123 commercial office buildings using mixed models can improve forecasting accuracy. We experiment with random intercept, random intercept and slope, and subject-specific curve mixed models. The predictive performance of the mixed effects models are tested against naive, linear and nonlinear benchmark models fitted to each building separately. Having justified the use of a mixed model framework, we provide an example showing how mixed model frameworks can, when combined with smart meter data and building attributes, be used to carry out scenario analysis. We demonstrate how expected electricity consumption may increase or decrease given a change in building attributes. This research justifies using mixed models to improve forecasting accuracy and to quantify changes in energy consumption under different building configuration scenarios.
 keywords: "time series forecasting, mixed-effects models, smart meters, energy, electricity"
 wpnumber: 1/19
 jelcodes: C10,C14,C22
 blind: false
-cover: true
+cover: false
 toc: false
 bibliography: ["library.bib", "packages.bib"]
 biblio-style: authoryear-comp
@@ -27,7 +28,7 @@ output:
     fig_width: 8
     # includes:
     #   in_header: preamble.tex
-    keep_tex: yes
+    keep_tex: no
     number_sections: yes
     citation_package: biblatex
 ---
@@ -35,14 +36,12 @@ output:
 ```{r setup, include=FALSE, echo=FALSE}
 knitr::opts_chunk$set(
   echo = FALSE,
-  fig.align = "center",
   message = FALSE,
   warning = FALSE,
   cache = FALSE,
   cache.lazy = FALSE,
   # dev = "pdf",
-  dev = "png",
-  dpi = 200,
+  # dpi = 200,
   fig.height = 5 * 1.4,
   fig.width = 8 * 1.4
 )
@@ -309,9 +308,6 @@ if (!file.exists(accuracy_df_file)) {
 ```
 
 
-\begin{abstract}
-Buildings are typically equipped with smart meters to measure demand at regular intervals. Smart meter data for a single building has many uses, such as forecasting and assessing overall building performance. However, when data is available from multiple buildings, smart meter data can have additional uses which are rarely explored. For instance, we can explore how different building characteristics influence energy demand. If each building is treated as a random effect and building characteristics are handled as fixed effects, a mixed effects model can be used to estimate how characteristics affect energy usage. In this paper we demonstrate that producing one-day ahead demand predictions for `r n_buildings` commercial office buildings using mixed models can improve forecasting accuracy. We experiment with random intercept, random intercept and slope, and subject-specific curve mixed models. The predictive performance of the mixed effects models are tested against naive, linear and nonlinear benchmark models fitted to each building separately. Having justified the use of a mixed model framework, we provide an example showing how mixed model frameworks can, when combined with smart meter data and building attributes, be used to carry out scenario analysis. We demonstrate how expected electricity consumption may increase or decrease given a change in building attributes. This research justifies using mixed models to improve forecasting accuracy and to quantify changes in energy consumption under different building configuration scenarios.
-\end{abstract}
 
 # Introduction
 
@@ -723,7 +719,7 @@ For reference, Appendix \@ref(feature-selection-for-all-months) contains feature
 
 (ref:fs-alpha) Feature selection for summer and winter including shoulder months. Each variable has been coloured based on the type of variable. Scaled temperature is automatically included.
 
-```{r fs-alpha, fig.cap="(ref:fs-alpha)", fig.height=7*1.4}
+```{r fs-alpha, fig.cap="(ref:fs-alpha)"}
 fs_df %>%
   select(period, month, vars) %>%
   unnest(cols = c(vars)) %>%
@@ -825,7 +821,7 @@ accuracy_df %>%
 
 (ref:one-day-ahead-forecast-cap) One-day ahead forecasts for `r format(p_one_day_ahead_date, "%d %B, %Y")`. The dashed black line shows the actual observed values for this day. The INS models often show erratic jumps due to overfitting.
 
-```{r one-day-ahead-forecast, fig.cap="(ref:one-day-ahead-forecast-cap)", fig.height=8*1.4}
+```{r one-day-ahead-forecast, fig.cap="(ref:one-day-ahead-forecast-cap)"}
 model_df %>%
   filter(fcst_date == p_one_day_ahead_date) %>%
   unnest(cols = c(preds)) %>%
@@ -1052,7 +1048,7 @@ Figure \@ref(fig:fs-all-periods-months) shows selected variables for all months 
 
 (ref:fs-all-periods-months) Selected features for each month of the year.
 
-```{r fs-all-periods-months, fig.cap="(ref:fs-all-periods-months)", fig.height = 8*1.4}
+```{r fs-all-periods-months, fig.cap="(ref:fs-all-periods-months)"}
 fs_df %>%
   select(period, month, vars) %>%
   unnest(cols = c(vars)) %>%
