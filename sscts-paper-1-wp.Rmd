@@ -15,7 +15,7 @@ author:
 abstract: Buildings are typically equipped with smart meters to measure demand at regular intervals. Smart meter data for a single building has many uses, such as forecasting and assessing overall building performance. However, when data is available from multiple buildings, smart meter data can have additional uses which are rarely explored. For instance, we can explore how different building characteristics influence energy demand. If each building is treated as a random effect and building characteristics are handled as fixed effects, a mixed effects model can be used to estimate how characteristics affect energy usage. In this paper we demonstrate that producing one-day ahead demand predictions for 123 commercial office buildings using mixed models can improve forecasting accuracy. We experiment with random intercept, random intercept and slope, and subject-specific curve mixed models. The predictive performance of the mixed effects models are tested against naive, linear and nonlinear benchmark models fitted to each building separately. Having justified the use of a mixed model framework, we provide an example showing how mixed model frameworks can, when combined with smart meter data and building attributes, be used to carry out scenario analysis. We demonstrate how expected electricity consumption may increase or decrease given a change in building attributes. This research justifies using mixed models to improve forecasting accuracy and to quantify changes in energy consumption under different building configuration scenarios.
 keywords: "time series forecasting, mixed-effects models, smart meters, energy, electricity"
 wpnumber: 1/19
-jelcodes: C10,C14,C22
+jelcodes: C10,C14,C52
 blind: false
 cover: false
 toc: false
