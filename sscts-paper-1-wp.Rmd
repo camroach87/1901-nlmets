@@ -1095,4 +1095,3 @@ fs_df %>%
   ) +
   scale_x_continuous(breaks = seq(8, 96, 8))
 ```
-\newpage
