@@ -47,6 +47,7 @@ test_models <- function(fcst_date, fcst_period, train_window, min_train_days,
   predict_df <- model_df %>%
     mutate(pred = map(fit, predict, newdata = test_df),
            pred = map2(fit, pred, back_transform_log)) %>%
+    select(-fit) %>%  # reduce memory usage
     unnest(pred) %>% 
     bind_cols(map_dfr(1:nrow(model_df),
                       ~ test_df %>% 
