@@ -12,7 +12,7 @@ author:
 - familyname: Taieb
   othernames: Souhaib Ben
   address: University of Mons
-abstract: Buildings are typically equipped with smart meters to measure demand at regular intervals. Smart meter data for a single building has many uses, such as forecasting and assessing overall building performance. However, when data is available from multiple buildings, smart meter data can have additional uses which are rarely explored. For instance, we can explore how different building characteristics influence energy demand. If each building is treated as a random effect and building characteristics are handled as fixed effects, a mixed effects model can be used to estimate how characteristics affect energy usage. In this paper we demonstrate that producing one-day ahead demand predictions for 123 commercial office buildings using mixed models can improve forecasting accuracy. We experiment with random intercept, random intercept and slope, and subject-specific curve mixed models. The predictive performance of the mixed effects models are tested against naive, linear and nonlinear benchmark models fitted to each building separately. Having justified the use of a mixed model framework, we provide an example showing how mixed model frameworks can, when combined with smart meter data and building attributes, be used to carry out scenario analysis. We demonstrate how expected electricity consumption may increase or decrease given a change in building attributes. This research justifies using mixed models to improve forecasting accuracy and to quantify changes in energy consumption under different building configuration scenarios.
+abstract: Buildings are typically equipped with smart meters to measure demand at regular intervals. Smart meter data for a single building have many uses, such as forecasting and assessing overall building performance. However, when data are available from multiple buildings, smart meter data have additional uses that are rarely explored. For instance, we can explore how different building characteristics influence energy demand. If each building is treated as a random effect and building characteristics are handled as fixed effects, a mixed effects model can be used to estimate how characteristics affect energy usage. In this paper we demonstrate that producing one-day ahead demand predictions for 123 commercial office buildings using mixed models can improve forecasting accuracy. We experiment with random intercept, random intercept and slope, and subject-specific curve mixed models. The predictive performance of the mixed effects models are tested against naive, linear and nonlinear benchmark models fitted to each building separately. Having justified the use of a mixed model framework, we provide an example showing how mixed model frameworks can, when combined with smart meter data and building attributes, be used to carry out scenario analysis. We demonstrate how expected electricity consumption may increase or decrease given a change in building attributes. This research justifies using mixed models to improve forecasting accuracy and to quantify changes in energy consumption under different building configuration scenarios.
 keywords: "time series forecasting, mixed-effects models, smart meters, energy, electricity"
 wpnumber: 1/19
 jelcodes: C10,C14,C52
@@ -338,7 +338,7 @@ We have time series and attribute data for `r n_buildings` commercial office bui
 
 ## Time series data
 
-Smart meter data recorded at 15-minute intervals for `r n_buildings` buildings is used when training and validating our models. The electricity demand is normalised by each building's net lettable area (NLA) to ensure demand is comparable between buildings. An example of a day of smart meter readings from four buildings is shown in Figure \@ref(fig:wh-line). Temperature data recorded at 15-minute intervals from the closest available weather station is also available for each building.
+Smart meter data recorded at 15-minute intervals for `r n_buildings` buildings are used when training and validating our models. The electricity demand is normalised by each building's net lettable area (NLA) to ensure demand is comparable between buildings. An example of a day of smart meter readings from six buildings is shown in Figure \@ref(fig:wh-line). Temperature data recorded at 15-minute intervals from the closest available weather station are also available for each building.
 
 The relationship between current temperature and electricity demand is shown in Figure \@ref(fig:temp-wh-scatter) for four buildings. We can see a clear difference in this relationship for the working and non-working periods. Furthermore, this relationship varies between each building. Note that when splines are fitted independently for each building they are very sensitive to outliers or data at domain extremes. This can be seen for building BID0052A at midnight (period 96) where a single observation with relatively high demand at the highest temperature results in the fitted spline increasing rapidly (and possibly unrealistically). This partly motivates our use of mixed effects models where data from multiple buildings can be used to fit these relationships resulting in models that are more robust to outliers or sparse data at extremes.
 
@@ -347,19 +347,20 @@ One issue that arises from only including business days is the gap between Frida
 Unlike lagged demand variables, which are used to capture operational changes in a building, lagged temperature variables are used to capture thermal inertia. Thermal inertia is residual heat energy that remains in a building after a run of warm weather (or conversely for cold water). For example, if several warm days occur sequentially, the expected demand can increase as more cooling is typically required to maintain indoor environment quality. Hence, lagged temperature variables are based off all days - not just working days. Monday's lagged temperature variables will include temperatures observed over the weekend.
 
 
-(ref:wh-line-cap) Normalised electricity demand of four commercial office buildings in Australia on `r format(fcst_test_dates[5], "%B %d, %Y")`. Only one day of data is shown although it is enough to see clear differences in the demand profiles. Some buildings show significantly more volatility in their demand when compared to others.
+(ref:wh-line-cap) Normalised electricity demand of six commercial office buildings in Australia on `r format(fcst_test_dates[5], "%e %B, %Y")`. Only one day of data is shown although it is enough to see clear differences in the demand profiles. Both the magnitude and volatility of demand varies greatly between buildings.
 
 ```{r wh-line, fig.cap="(ref:wh-line-cap)"}
 main_df %>%
   filter(date(ts) == fcst_test_dates[5]) %>%
-  filter(bid %in% sample(unique(bid), 4)) %>%
+  filter(bid %in% c("BID1501", "BID1701", "BID0220", "BID0203", "BID0128", "BID2408")) %>%
   ggplot(aes(x = ts, y = wh)) +
   geom_line() +
-  facet_wrap(~bid) +
+  facet_wrap(~bid, scales = "free_y") +
   labs(
     y = expression(Normalised ~ electricity ~ (Wh / m^2)),
     x = "Date"
-  )
+  ) +
+  scale_x_datetime(date_labels = "%H:%M")
 ```
 
 (ref:temp-wh-scatter) Relationship between temperature and electricity demand of four Australian office buildings during Summer. Data at four different 15-minute periods of the day are shown. We can see a clear change in the relationship of our predictor and response variables both between buildings and at different times of the day.
@@ -391,7 +392,7 @@ main_df %>%
 
 ## Attribute data
 
-Building attribute data describes different characteristics of each building. The data is Boolean and indicates if a particular attribute is absent or present. A previous paper [@Roach2019-ss] that examined important drivers of commercial office building demand identified the following attributes as relevant:
+Building attribute data describes different characteristics of each building. The data are Boolean and indicate if a particular attribute is absent or present. A previous paper [@Roach2019-ss] that examined important drivers of commercial office building demand identified the following attributes as relevant:
 
 * tenant feed
 * DX system
@@ -654,7 +655,7 @@ $$
 
 where $e_i$ are the residuals of the model and $h_i$ are the diagonal elements of the hat-matrix $\mathbf{H} = \mathbf{X} \left( \mathbf{X}' \mathbf{X}  \right)^{-1} \mathbf{X}'$. 
 
-Training data is comprised of business days within a window of `r fcst_train_window` days prior to the month we wish to select variables for. As our experimental setup for the validation phase involves one-day ahead forecasts, this variable selection prevents us from using any data from the future. For example, when forecasting for any date in January, only data from the months preceding January would have been used to select predictors.
+Training data are comprised of business days within a window of `r fcst_train_window` days prior to the month we wish to select variables for. As our experimental setup for the validation phase involves one-day ahead forecasts, this variable selection prevents us from using any data from the future. For example, when forecasting for any date in January, only data from the months preceding January would have been used to select predictors.
 
 We use best subset selection during feature selection. Given $p$ predictors we choose the combination of these that produce the best $R^2$ scores. Once the best model based on $R^2$ has been determined for each set of $p$ predictors, we use the LOOCV score to determine the overall best. The LOOCV score is chosen as it gives an estimate of the out of sample performance of our models. Figure \@ref(fig:fs-model-selection) shows the LOOCV scores for each predictor set of size $p$. During feature selection we chose to avoid greedy approaches such as forward or backward stepwise selection; or approaches that work systematically through lagged weather variables [@Hyndman2010-ui]. Naturally, greedy methods have computational benefits, but it is interesting to observe which features are chosen when _all_ possible predictor combinations are assessed.
 
@@ -689,7 +690,7 @@ fs_df %>%
 
 We used a historical training period comprised of recent observations for each building. Business days from a sliding window of length `r fcst_train_window` days were selected as training data for each model. Using recent observations allows recent operational changes or trends to be captured in each model.
 
-If for a given 1-day ahead forecast a building had less than `r fcst_min_train_days` days of training data present it was removed from the forecast. This was to deal with buildings that had recently been included in the data set or where the data had been censored. Training a building with less than `r fcst_min_train_days` days of data sometimes resulted in severe overfitting.
+If, for a given 1-day ahead forecast, a building had less than `r fcst_min_train_days` days of training data present then it was removed from the forecast. This was done to accommodate buildings that had recently been included in the data set or where the data had been censored. Training a building with less than `r fcst_min_train_days` days of data sometimes resulted in severe overfitting.
 
 ### Error measures
 
@@ -786,7 +787,7 @@ Table \@ref(tab:accuracy-results) shows the MAE, MAPE, sMAPE and MASE for each m
 
 <!-- Importantly, accuracy further increases when building attributes are included as fixed effects in the SSCATTR model. -->
 
-Given the SSC and SSCATTR models outperform each of our benchmarks it seems reasonable to conclude that forecasting with mixed effects models is a reasonable practice that should be encouraged when data is available for similar subjects.
+Given the SSC and SSCATTR models outperform each of our benchmarks it seems reasonable to conclude that forecasting with mixed effects models is a reasonable practice that should be encouraged when data are available for similar subjects.
 
 (ref:accuracy-results) Forecasting accuracy measures for each model across the entire day, business hours (7:00 am to 7:00 pm) and non-business hours (7:00 pm to 7:00 am).
 
@@ -820,7 +821,7 @@ accuracy_df %>%
   kableExtra::group_rows("Non-business hours", 17, 24)
 ```
 
-(ref:one-day-ahead-forecast-cap) One-day ahead forecasts for `r format(p_one_day_ahead_date, "%d %B, %Y")`. The dashed black line shows the actual observed values for this day. The INS models often show erratic jumps due to overfitting.
+(ref:one-day-ahead-forecast-cap) One-day ahead forecasts for `r format(p_one_day_ahead_date, "%e %B, %Y")`. The dashed black line shows the actual observed values for this day. The INS models often show erratic jumps due to overfitting.
 
 ```{r one-day-ahead-forecast, fig.cap="(ref:one-day-ahead-forecast-cap)"}
 model_df %>%
@@ -833,7 +834,7 @@ model_df %>%
   ggplot(aes(x = ts)) +
   geom_line(aes(y = wh), colour = "black", linetype = "dashed") +
   geom_line(aes(y = pred, colour = model), alpha = 0.7) +
-    facet_wrap(~bid, ncol = 2) +
+  facet_wrap(~bid, ncol = 2, scales = "free_y") +
   labs(
     y = expression(Normalised ~ electricity ~ (Wh / m^2)),
     x = "Date",
