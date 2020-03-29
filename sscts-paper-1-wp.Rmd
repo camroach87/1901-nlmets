@@ -73,8 +73,9 @@ knitr::write_bib(c("base", "lme4"),
 set.seed(123412)
 
 # furrr/future settings
-plan(multicore, workers = 11) # number of cpus
-options(future.globals.maxSize = 850 * 1024^2) # increase limit to 850 Mb
+options(future.globals.maxSize = 850 * 1024^2 ,  # increase limit to 850 Mb
+        future.fork.enable = TRUE)  # disabled by default, but I haven't noticed stability issues
+plan(multicore, workers = availableCores()-1) # multicore forks R processes and requires future.fork.enable = TRUE as above
 
 # The base::scale function returns a matrix which causes issues later on when
 # fitting and predicting with lm. Use this because it returns a vector.
@@ -201,7 +202,7 @@ if (!file.exists(fs_df_file)) {
       month,
       ~ min(fcst_test_dates[month(fcst_test_dates) == .x])
     )) %>%
-    unnest() %>%
+    unnest_legacy() %>%
     mutate(features = future_map2(
       fs_date,
       period,
@@ -249,7 +250,7 @@ if (!file.exists(model_df_file)) {
       min_train_days = fcst_min_train_days,
       .progress = TRUE
     )) %>%
-    unnest(fit_results)
+    unnest_legacy(fit_results)
 
   print(Sys.time() - start_time)
   save(model_df, file = model_df_file)
@@ -267,7 +268,7 @@ if (!file.exists(accuracy_df_file)) {
   
   calculate_accuracy <- function(df, periods) {
     df <- df %>%
-      unnest(preds) %>%
+      unnest_legacy(preds) %>%
       filter(period %in% periods) %>%
       group_by(model)
     
@@ -298,7 +299,7 @@ if (!file.exists(accuracy_df_file)) {
     "Non-business hours", setdiff(1:96, business_hour_periods)
   ) %>%
     mutate(accuracy = map(periods, ~ calculate_accuracy(model_df, .x))) %>%
-    unnest(accuracy)
+    unnest_legacy(accuracy)
   
   save(accuracy_df, file = accuracy_df_file)
 } else {
@@ -852,7 +853,8 @@ Here we perform a one-sided Diebold-Mariano test [@Diebold2002-ru] to determine 
 model_df %>%
   filter(period %in% (1:24 * 4)) %>%
   select(fcst_date, period, preds) %>%
-  unnest(cols = c(preds)) %>%
+  # unnest(cols = c(preds)) %>%
+  unnest_legacy(preds) %>%
   select(fcst_date, period, bid, model, resid) %>%
   filter(model %in% c("ILR", "SSCATTR")) %>%
   spread(model, resid) %>%
