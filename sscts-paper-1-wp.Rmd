@@ -537,24 +537,6 @@ $y_{b,672,t}$ & 672 & Scaled actual demand lagged by 1 week. \\
 \end{table}
 
 
-<!-- Table: (\#tab:weather-vars) Predictor variables evaluated during feature selection stage when determining $\mathcal{P}_t$. -->
-
-<!-- Variable $x_{b,i,t}$ | Lag (15-minute periods) | Description -->
-<!-- ----------------|---------|------------------------------------------------- -->
-<!-- $w_{b,0,t}$     | 0       | Scaled current temperature. -->
-<!-- $w_{b,12,t}$    | 12      | Scaled temperature lagged by 3 hours. -->
-<!-- $w_{b,24,t}$    | 24      | Scaled temperature lagged by 6 hours. -->
-<!-- $w_{b,48,t}$    | 48      | Scaled temperature lagged by 12 hours. -->
-<!-- $w_{b,96,t}$    | 96      | Scaled temperature lagged by 24 hours. -->
-<!-- $w_{b,192,t}$   | 192     | Scaled temperature lagged by 2 days. -->
-<!-- $w_{b,288,t}$   | 288     | Scaled temperature lagged by 3 days. -->
-<!-- $w^+_{b,t}$     |         | Maximum scaled temperature over last 24 hours. -->
-<!-- $w^-_{b,t}$     |         | Minimum scaled temperature over last 24 hours. -->
-<!-- $\bar{w}_{b,t}$ |         | Average scaled temperature over last 3 days. -->
-<!-- $y_{b,96,t}$    | 96      | Scaled actual demand lagged by 1 day. -->
-<!-- $y_{b,192,t}$   | 192     | Scaled actual demand lagged by 2 days. -->
-<!-- $y_{b,672,t}$   | 672     | Scaled actual demand lagged by 1 week. -->
-
 ### Pooled regression model
 
 Our pooled regression model is fit using data from all buildings. One model is fit for each 15-minute period of the day which is then used to predict demand of each building $b$ at time $t$. Note that since all buildings are included in the model, we introduce the $b$ subscript for buildings. In addition to testing this model's forecasting capability we will also use it to perform feature selection in Section \@ref(feature-selection) as it is much faster to train than mixed effects models. Since buildings are treated as fixed effects we can use ordinary least squares to quickly fit the model. The demand of building $b$ at time $t$ is given by
