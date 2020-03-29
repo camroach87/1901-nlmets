@@ -813,7 +813,8 @@ model_df %>%
   unnest(cols = c(preds)) %>%
   # filter(bid %in% sample(unique(bid), 3),
   #        fcst_date %in% (dmy("13/3/2017")+0:4)) %>%
-  filter(bid %in% sample(unique(bid), 6)) %>%
+  filter(bid %in% sample(unique(bid), 6),
+         model %in% c("Naive", "INS", "SSC")) %>%
   mutate(ts = as_datetime(fcst_date) + minutes((period - 1) * 24 * 60 / 96)) %>%
   ggplot(aes(x = ts)) +
   geom_line(aes(y = wh), colour = "black", linetype = "dashed") +
@@ -875,41 +876,6 @@ model_df %>%
   kableExtra::kable_styling()
 ```
 
-
-<!-- ## Autocorrelation in residuals -->
-
-<!-- __TODO: show a plot of ACF for SSCATTR residuals from several buildings based OR inspect the empirical autocorrelation function for the normalised residuals as recommended by Pinheiro and Bates, 1978.__ -->
-
-<!-- __TODO:__ I don't think I should be comparing the out of sample residuals since each comes from a different model! Shouldn't I look at in-sample correlation? i.e. fit a model to some training data and then check in-sample ACF for residuals. Check how ACF is normally calculated in Rob/Shu papers (in sample or out of sample). -->
-
-<!-- Here we examine if there is any remaining signal in the residuals of the SSCATTR model.  -->
-
-<!-- __TODO:__ To do this we calculate the empirical autocorrelation function for the normalised residuals^[The normalised residuals are defined as $\mathbf{r}_i = \hat{\sigma}^{-1}(\hat{\Lambda}_i^{-\frac{1}{2}})^T(\mathbf{y}_i - \hat{\mathbf{y}}_i)$ where $\hat{\sigma}^2 \hat{\Lambda}_i$ is the estimated variance-covariance matrix for the within group errors.] [@Pinheiro1978-tg]. -->
-
-<!-- ```{r} -->
-<!-- bla <- model_df %>%  -->
-<!--   filter(period == 70) %>%  -->
-<!--   unnest(preds) %>%  -->
-<!--   filter(bid == unique(bid)[3], -->
-<!--          model == "SSCATTR") %>% -->
-<!--   select(fcst_date, resid) %>%  -->
-<!--   arrange(desc(fcst_date)) -->
-
-<!-- acf(bla$resid, plot = FALSE)$acf %>%  -->
-<!--   data.frame() %>%  -->
-<!--   rename(Autocorrelation = ".") %>%  -->
-<!--   rownames_to_column("lag") %>%  -->
-<!--   mutate(lag = as.numeric(lag) - 1) %>%  -->
-<!--   filter(lag != 0) %>%  -->
-<!--   ggplot() + -->
-<!--   geom_segment(aes(y = 0, yend = Autocorrelation, x = lag, xend = lag), -->
-<!--                colour = ba_palette[1]) + -->
-<!--   geom_point(aes(x = lag, y = Autocorrelation), colour = ba_palette[1]) + -->
-<!--   geom_hline(yintercept = c(0.1, -0.1), linetype = "dashed", -->
-<!--              colour = ba_palette[1]) + -->
-<!--   labs(x = "Lag (days)", -->
-<!--        y = "Autocorrelation") -->
-<!-- ``` -->
 
 ## Scenario analysis
 
