@@ -34,7 +34,7 @@ test_models <- function(fcst_date, fcst_period, train_window, min_train_days,
   # Add models we wish to fit here
   model_df <- list(Naive = fit_naive(train_df),
                    ILR = fit_ind_lm(train_df),
-                   INS = fit_ind_ns(train_df, predictors),
+                   INS = fit_ind_ns(train_df, "scaled_temperature"),
                    PR = fit_pool(train_df, predictors),
                    RI = fit_ri(train_df, predictors),
                    RIS = fit_ris(train_df, predictors),

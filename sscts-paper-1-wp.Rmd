@@ -497,13 +497,11 @@ where $p$ is the 15-minute period of the day at time $t$, $w_{0,t}$ is the scale
 
 #### Individual natural spline model
 
-A linear relationship between temperature and electricity demand may not be sufficient to adequately capture the relationship between the two. Natural cubic splines allow a more flexible relationship between predictors and the response. In this model the log demand of each building is modelled separately using natural splines. Additional predictor variables are introduced in this model, such as lagged temperature variables; maximum, minimum and average temperatures; and lagged demand. Details of each of these predictors is presented in Table \@ref(tab:weather-vars). We denote this set of predictor variables as $\mathcal{P}_t$, which contains the selected variables for the 15-minute period of day and month at time $t$. The exact combination of variables is chosen via our feature selection methodology (see Section \@ref(feature-selection)).
-
-In this model, a building's demand based on temperature and other selected predictors is given by
+A linear relationship between temperature and electricity demand may not be sufficient to adequately capture the relationship between the two. Natural cubic splines allow a more flexible relationship between predictors and the response. In this model the log demand of each building is modelled separately using natural splines. A building's demand based on temperature and other selected predictors is given by
 $$
 \begin{gathered}
-\log y_{t} = \sum_{x_{i,t} \in \mathcal{P}_t } f_{i,p}(x_{i,t}) + \epsilon_{t}, \quad \epsilon_{t} \sim N(0, \sigma^2_{p}), \\
-f_{i,p}(x) = \sum^K_{k=1} \beta_{i,p,k} (x - \kappa_k)_+^3,
+\log y_{t} = f_p(w_{0,t}) + \epsilon_{t}, \quad \epsilon_{t} \sim N(0, \sigma^2_{p}), \\
+f_p(x) = \sum^K_{k=1} \beta_{i,p,k} (x - \kappa_k)_+^3,
 \end{gathered}
 $$
 where $x_{i,t}$ is the value of the $i$^th^ predictor variable at time $t$ and $f_{i,p}$ is a smooth function modelling the relationship between $x_{i,t}$ and the logged demand for period $p$. We refer to this set of models as the "Individual Natural Spline" (INS) models.
@@ -539,7 +537,11 @@ $y_{b,672,t}$ & 672 & Scaled actual demand lagged by 1 week. \\
 
 ### Pooled regression model
 
-Our pooled regression model is fit using data from all buildings. One model is fit for each 15-minute period of the day which is then used to predict demand of each building $b$ at time $t$. Note that since all buildings are included in the model, we introduce the $b$ subscript for buildings. In addition to testing this model's forecasting capability we will also use it to perform feature selection in Section \@ref(feature-selection) as it is much faster to train than mixed effects models. Since buildings are treated as fixed effects we can use ordinary least squares to quickly fit the model. The demand of building $b$ at time $t$ is given by
+Our pooled regression model is fit using data from all buildings. One model is fit for each 15-minute period of the day which is then used to predict demand of each building $b$ at time $t$. Note that since all buildings are included in the model, we introduce the $b$ subscript for buildings.
+
+Additional predictor variables are introduced in this model, such as lagged temperature variables; maximum, minimum and average temperatures; and lagged demand. A description of each predictor is presented in Table \@ref(tab:weather-vars). We denote this set of predictor variables as $\mathcal{P}_t$, which contains the selected variables for the 15-minute period of day and month at time $t$. The exact combination of variables is chosen via our feature selection methodology described in Section \@ref(feature-selection). This model is used when selecting features as it is much faster to train via OLS than it is to train a mixed effects model.
+
+The demand of building $b$ at time $t$ is given by
 $$
 \begin{gathered}
 \log y_{b,t} = \sum_{x_{b,i,t} \in \mathcal{P}_t } f_{i,p}(x_{b,i,t}) + \beta_{b,p}+ \epsilon_{b,t}, \quad \epsilon_{b,t} \sim N(0, \sigma^2_{p}), \\
