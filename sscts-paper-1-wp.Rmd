@@ -681,12 +681,12 @@ In order to build a better understanding of how a mixed model framework improves
 
 ## Variables chosen via feature selection
 
-Figure \@ref(fig:fs-alpha) show the number of times each variable is selected for all months of the year. There is a lot of variation in the selected predictors, even between adjacent 15-minute periods. By overlaying all of the months we do observe some structure. Perhaps the most noticeable characteristic is that temperature variables are selected more often during business hours, which shows the influence temperature has on demand during the day and how temperature influences occupant behaviour. Outside of these hours we see fewer temperature variables selected. Another point of interest is that during business hours, demand lagged by 2 days is not selected as often. However, demand lagged by 2 days is always selected during non-business hours. It appears as though serial correlation in the demand time series is a more useful predictor during non-business hours than temperature variables. Thermal inertia does not appear to influence demand as much during non-business hours.
+Figure \@ref(fig:fs-alpha) show the number of times each variable is selected for all months of the year. There is a lot of variation in the selected predictors, even between adjacent 15-minute periods. By overlaying all of the months we do observe some structure. Perhaps the most noticeable characteristic is that temperature variables are selected more often during business hours, which shows the influence temperature has on demand during the day and how temperature influences occupant behaviour. Outside of these hours we see fewer temperature variables selected. Another point of interest is that during business hours, lagged demand variables are selected less often than for non-business hours. It would appear as though serial correlation in the demand time series is a more useful predictor during non-business hours than temperature. Thermal inertia does not appear to influence demand as much during non-business hours.
 
 
 (ref:fs-alpha) Feature selection for all months. The number of times a variable has been selected across all 12 months is indicated by the transparency of each tile for a given period. In general, weather features are selected more often during business hours. During non-business hours, weather features are selected less often, but lagged demand variables are almost always selected.
 
-```{r fs-alpha, fig.cap="(ref:fs-alpha)"}
+```{r fs-alpha, fig.height = 6, fig.cap="(ref:fs-alpha)"}
 fs_df %>%
   select(period, month, vars) %>%
   unnest(cols = c(vars)) %>%
