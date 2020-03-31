@@ -40,10 +40,9 @@ knitr::opts_chunk$set(
   warning = FALSE,
   cache = FALSE,
   cache.lazy = FALSE,
-  # dev = "pdf",
-  # dpi = 200,
-  fig.height = 5 * 1.4,
-  fig.width = 8 * 1.4
+  dev = "pdf",
+  fig.height = 5,
+  fig.width = 8.5
 )
 library(tidyverse)
 library(tsibble)
@@ -110,22 +109,8 @@ building_attributes <- c(
   "electricelementheating",
   "centraldist"
 )
-predictor_vars <- c(
-  "scaled_temperature",
-  "scaled_temperature_lag_12",
-  "scaled_temperature_lag_24",
-  "scaled_temperature_lag_48",
-  "scaled_temperature_lag_96",
-  "scaled_temperature_lag_192",
-  "scaled_temperature_lag_288",
-  "scaled_temperature_max",
-  "scaled_temperature_min",
-  "scaled_temperature_avg",
-  "scaled_wh_lag_96",
-  "scaled_wh_lag_192",
-  "scaled_wh_lag_672"
-)
-formula_all <- as.formula(paste("~ bid +", get_terms(predictor_vars)))
+predictor_vars <- read_csv("data/predictor_vars.csv")
+formula_all <- as.formula(paste("~ bid +", get_terms(predictor_vars$vars)))
 
 # Presentation
 p_one_day_ahead_date <- dmy("23/8/2017")
@@ -354,7 +339,7 @@ main_df %>%
   filter(date(ts) == fcst_test_dates[5]) %>%
   filter(bid %in% c("BID1501", "BID1701", "BID0220", "BID0203", "BID0128", "BID2408")) %>%
   ggplot(aes(x = ts, y = wh)) +
-  geom_line() +
+  geom_line(colour = ba_palette[1]) +
   facet_wrap(~bid, scales = "free_y") +
   labs(
     y = expression(Normalised ~ electricity ~ (Wh / m^2)),
@@ -363,30 +348,29 @@ main_df %>%
   scale_x_datetime(date_labels = "%H:%M")
 ```
 
-(ref:temp-wh-scatter) Relationship between temperature and electricity demand of four Australian office buildings during Summer. Data at four different 15-minute periods of the day are shown. We can see a clear change in the relationship of our predictor and response variables both between buildings and at different times of the day.
+(ref:temp-wh-scatter) Relationship between temperature and normalised electricity demand of two Australian office buildings during Summer. Logged values are shown as we use these as our response variable when fitting models to enforce a positivity constraint. Data at midday and midnight. The relationship between temperature and demand is different both between buildings and at different times of the day.
 
 ```{r temp-wh-scatter, fig.cap="(ref:temp-wh-scatter)"}
-
-plot_bids <- c(sample(unique(main_df$bid), 3), "BID0052A")
-plot_periods <- c(24, 48, 72, 96)
-
 main_df %>%
   filter(
-    bid %in% plot_bids,
+    bid %in% c("BID0105", "BID0127"),
     month(ts) %in% c(12, 1, 2),
-    period %in% plot_periods
+    period %in% c(48, 96)
   ) %>%
-  mutate(hour = factor(hour(ts))) %>%
-  mutate(period = factor(period)) %>%
-  ggplot(aes(x = temperature, y = log(wh), colour = bid)) +
-  geom_point(shape = "O", alpha = 0.5) +
-  geom_smooth(alpha = 0.2, method = "lm", formula = y ~ ns(x, df = 3)) +
-  facet_grid(bid ~ period, scales = "free") +
+  mutate(time = seconds_to_period(period*15*60),
+         time = sprintf("%02d:%02d", time$hour, time$minute)) %>% 
+  ggplot(aes(x = temperature, y = log(wh), colour = time)) +
+  geom_point() + 
+  stat_smooth(geom='line', alpha=1, se=FALSE, method = "lm",
+              formula = y ~ ns(x, df = 3)) +
   labs(
     y = expression(Log ~ normalised ~ electricity ~ (log(Wh / m^2))),
-    x = "Temperature (°C)"
+    x = "Temperature (°C)",
+    colour = "Time of day"
   ) +
-  theme(legend.position = "none")
+  facet_wrap(~bid) + 
+  theme(legend.position = "bottom") +
+  scale_colour_manual(values=ba_palette[c(3,1)])
 ```
 
 
@@ -645,7 +629,7 @@ We use best subset selection during feature selection. Given $p$ predictors we c
 
 A key point to note is that feature selection was done on the weather variables and _not_ the spline basis functions. Doing so would destroy the properties of a spline if only a subset of its basis functions were to be selected.
 
-(ref:fs-model-selection) LOOCV scores for each month. In general, the LOOCV errors initially decrease as variables are added, but begin to increase slightly at a certain point for each period.
+(ref:fs-model-selection) LOOCV scores (log scale) for each month. In general, the LOOCV errors initially decrease as variables are added, but begin to increase slightly at a certain point for each period.
 
 ```{r fs-model-selection, fig.cap = "(ref:fs-model-selection)"}
 fs_df %>%
@@ -663,7 +647,8 @@ fs_df %>%
     y = "LOOCV scores",
     colour = "Period"
   ) + 
-  scale_x_continuous(breaks=c(0,3,6,9,12))
+  scale_x_continuous(breaks=c(0,3,6,9,12)) +
+  scale_y_log10()
 ```
 
 It should be noted that feature selection could be further improved for the mixed effects models by proceeding with a step-wise selection process after the above process has completed for the pooled model. Features can be added or removed based on if an appropriate out of sample accuracy score improves. This allows us to benefit from the relative speed of fitting via OLS before further fine-tuning with a greedy selection algorithm.
@@ -693,17 +678,13 @@ When comparing these metrics in Section \@ref(forecasting-accuracy), we find tha
 
 In order to build a better understanding of how a mixed model framework improves upon fitting individual models to each building we need to assess each model's performance. To do so, we create one-day ahead ex-post forecasts and calculate the MAE, MAPE, sMAPE and MASE for each. We focus on ex-post forecasting as we wish to examine error caused by model specification and ignore errors caused by incorrect weather forecasts, as would be the case in an ex-ante forecasting scenario.
 
-<!-- A caveat to this finding is that some quick experiments revealed that as more data is added the individual models become as proficient as the mixed models. Naturally this comes with a computational cost and so this should be weighed against using less data and a mixed model framework. Another point is that while the individual models may become as accurate, they do not allow us to assess fixed effects such as building characteristics as a mixed model otherwise would. Hence they can not be used for scenario analysis. -->
 
 ## Variables chosen via feature selection
 
-Figure \@ref(fig:fs-alpha) show the selected variables for summer and winter including shoulder months for each. These plots show the number of times each feature was selected for the months comprising the extended season for each 15-minute model. There is a lot of variation in the selected predictors, even between adjacent 15-minute periods. However, when we overlay similar months we do start to observe some structure. Perhaps the most noticeable characteristic is that temperature variables are selected more often during business hours, which shows the influence temperature has on demand during the day. Outside of these hours we see fewer temperature variables selected. Another point of interest is that during business hours, demand lagged by 2 days is not selected as often. However, non-business hours do have demand lagged by 2 days selected. It appears as though serial correlation in the demand time series is a more useful predictor during non-business hours than temperature variables. Thermal inertia does not appear to influence demand as much during non-business hours.
+Figure \@ref(fig:fs-alpha) show the number of times each variable is selected for all months of the year. There is a lot of variation in the selected predictors, even between adjacent 15-minute periods. By overlaying all of the months we do observe some structure. Perhaps the most noticeable characteristic is that temperature variables are selected more often during business hours, which shows the influence temperature has on demand during the day and how temperature influences occupant behaviour. Outside of these hours we see fewer temperature variables selected. Another point of interest is that during business hours, demand lagged by 2 days is not selected as often. However, demand lagged by 2 days is always selected during non-business hours. It appears as though serial correlation in the demand time series is a more useful predictor during non-business hours than temperature variables. Thermal inertia does not appear to influence demand as much during non-business hours.
 
-<!-- It is difficult to observe clear differences between the extended summer and winter periods due to the amount of variance in the chosen variables. However, the maximum temperature over the last 24 hours seems to be more consistently selected during business hours in summer. This seems reasonable as high temperatures in summer will result in additional office cooling. -->
 
-For reference, Appendix \@ref(feature-selection-for-all-months) contains feature selection plots for each of the months laid out individually.
-
-(ref:fs-alpha) Feature selection for summer and winter including shoulder months. Each variable has been coloured based on the type of variable. Scaled temperature is automatically included.
+(ref:fs-alpha) Feature selection for all months. The number of times a variable has been selected across all 12 months is indicated by the transparency of each tile for a given period. In general, weather features are selected more often during business hours. During non-business hours, weather features are selected less often, but lagged demand variables are almost always selected.
 
 ```{r fs-alpha, fig.cap="(ref:fs-alpha)"}
 fs_df %>%
@@ -724,32 +705,19 @@ fs_df %>%
   by = c("month", "period")
   ) %>%
   gather(vars, selected, -c(period, month)) %>%
-  mutate(
-    selected = tidyr::replace_na(selected, FALSE),
-    vars = fct_rev(factor(vars, levels = predictor_vars)),
-    season = if_else(month %in% month(c(10:12, 1:3), label = TRUE),
-      "October-March", "April-September"
-    )
-  ) %>%
-  group_by(season, period, vars) %>%
+  mutate(selected = tidyr::replace_na(selected, FALSE)) %>%
+  group_by(period, vars) %>%
   summarise(n_selected = sum(selected)) %>%
   ungroup() %>%
-  mutate(
-    selected = if_else(n_selected > 0, TRUE, FALSE),
-    predictor_type = case_when(
-      str_detect(vars, "^scaled_temperature$") ~ "Forced variable",
-      str_detect(vars, "^scaled_temperature_lag") ~ "Temperature lags",
-      str_detect(vars, "^scaled_temperature_(?!lag)") ~ "Temperature statistic",
-      str_detect(vars, "^scaled_wh_lag") ~ "Demand lags",
-      TRUE ~ "Other"
-    )
-  ) %>%
+  filter(vars != "scaled_temperature") %>% 
+  mutate(selected = if_else(n_selected > 0, TRUE, FALSE)) %>%
+  inner_join(predictor_vars) %>% 
+  mutate(description = factor(description, levels = predictor_vars$description,
+                              ordered = TRUE),
+         description = fct_rev(description)) %>% 
   filter(n_selected > 0) %>% # don't want any fill for 0
-  ggplot(aes(
-    x = period, y = vars, alpha = n_selected,
-    fill = predictor_type
-  )) +
-  geom_tile() +
+  ggplot(aes(x = period, y = description, alpha = n_selected)) +
+  geom_tile(fill = ba_palette[1]) +
   theme(
     panel.grid.major = element_blank(),
     panel.grid.minor = element_blank(),
@@ -757,19 +725,20 @@ fs_df %>%
   ) +
   labs(
     x = "Period",
-    y = "Predictor",
+    y = NULL,
     fill = "Predictor type",
-    alpha = "Number of times selected"
+    alpha = "Selections"
   ) +
-  facet_wrap(~season, ncol = 1) +
+  facet_grid(predictor_type ~ ., space = "free_y", scales = "free_y") +
   scale_x_continuous(breaks = seq(8, 96, 8))
 ```
 
+
 ## Forecasting accuracy
 
-Table \@ref(tab:accuracy-results) shows the MAE, MAPE, sMAPE and MASE for each model across the entire day, during business hours (7:00 am to 7:00 pm) and during non-business hours (7:00 pm to 7:00 am). The INS models have the worst forecasting accuracy across all metrics. This is likely due to overfitting - the natural splines are too flexible for some of the buildings with the amount of data used for training. Evidence of this can be seen in Figure \@ref(fig:one-day-ahead-forecast) where erratic spikes in the predicted demand can be seen. When moving to a mixed effects model that uses natural splines the predictive accuracy is greatly improved. The SSC and SSCATTR models consistently outperform all other models across all metrics.
+Table \@ref(tab:accuracy-results) shows the MAE, MAPE, sMAPE and MASE for each model across the entire day, during business hours (7:00 am to 7:00 pm) and during non-business hours (7:00 pm to 7:00 am).
 
-<!-- Importantly, accuracy further increases when building attributes are included as fixed effects in the SSCATTR model. -->
+The Naive model has the worst forecasting accuracy. All of the benchmark and mixed effects models outperform it. Overall, the best performing model is the SSC model, closely followed by the SSCATTR model. These two models consistently outperform others across all metrics. Figure \@ref(fig:one-day-ahead-forecast) shows an example of forecasts produced from the SSC model. The actual demand values and previous day's demand values (Naive model) are also plotted. We can see that the SSC model tends to track the general shape of each profile well and does not predict erratic spikes in demand.
 
 Given the SSC and SSCATTR models outperform each of our benchmarks it seems reasonable to conclude that forecasting with mixed effects models is a reasonable practice that should be encouraged when data are available for similar subjects.
 
@@ -777,17 +746,13 @@ Given the SSC and SSCATTR models outperform each of our benchmarks it seems reas
 
 ```{r accuracy-results}
 accuracy_df %>%
-  mutate_if(is.numeric, list(~ as.character(signif(., 4)))) %>%  # scientific notation for INS and decimals for all others
+  mutate_if(is.numeric, list(~ as.character(signif(., 3)))) %>%  # scientific notation for INS and decimals for all others
   group_by(working_hours) %>% 
-  # mutate(MASE = kableExtra::cell_spec(
-  #   MASE, format = "latex",
-  #   bold = if_else(MASE == min(MASE), T, F))
-  # ) %>%
-  # mutate_if(
-  #   is.numeric,
-  #   ~ kableExtra::cell_spec(., format = "latex", 
-  #                           bold = if_else(. == min(.), T, F))
-  # ) %>% 
+  mutate_at(
+    vars(mape, smape, mae, mase),
+    ~ kableExtra::cell_spec(., format = "latex",
+                            bold = if_else(. == min(.), T, F))
+  ) %>%
   ungroup() %>% 
   select(
     Model = model, MAE = mae, MAPE = mape, sMAPE = smape,
@@ -902,7 +867,7 @@ main_df %>%
   kableExtra::kable_styling()
 ```
 
-(ref:attribute-changes) Expected normalised electricity consumption for three days in January, 2017 for building `r scenario_bid`. The expected demand of the existing building is shown ("Original building"), as well as four scenarios each of which involves the modification of one attribute. The grey line show the actual demand observed on each day.
+(ref:attribute-changes) Expected normalised electricity consumption for three days in January, 2017 for building `r scenario_bid`. The grey line shows the actual demand that was observed on each day. The expected demand of the existing building is shown ("Original building"), as well as four scenarios each of which involves the modification of one attribute.
 
 ```{r attribute-changes, fig.cap="(ref:attribute-changes)"}
 p_data <- model_df %>%
@@ -917,9 +882,9 @@ ggplot() +
     data = p_data, aes(x = ts, y = wh),
     colour = "grey"
   ) +
-  geom_line(data = p_data, aes(x = ts, y = pred, colour = scenario)) +
+  geom_line(data = p_data, aes(x = ts, y = pred), colour = ba_palette[1]) +
   ylim(0, NA) +
-  facet_wrap(~scenario) +
+  facet_wrap(~scenario, ncol = 1) +
   theme(legend.position = "none") +
   labs(
     y = expression(Normalised ~ electricity ~ (Wh / m^2)),
@@ -970,11 +935,11 @@ ggplot(mapping = aes(x = ts, y = Wh)) +
     aes(colour = scenario)
   ) +
   geom_area(
-    data = filter(p_df, var == "saving"), fill = ba_palette[3],
+    data = filter(p_df, var == "saving"), fill = ba_palette[2],
     alpha = 0.5
   ) +
   facet_wrap(~facet_row, ncol = 1, scales = "free_y") +
-  theme(legend.position = "right") +
+  theme(legend.position = "bottom") +
   labs(
     y = expression(Normalised ~ electricity ~ (Wh / m^2)),
     x = "Date",
@@ -995,59 +960,3 @@ Finally, we included an example of using the SSCAR model for scenario analysis f
 This research project was supported by funding from Buildings Alive. I would like to thank Buildings Alive for making data available and their guidance in understanding commercial building equipment and behaviour. I would also like to thank the reviewers for their thorough and constructive feedback.
 
 This research was supported by use of the Nectar Research Cloud, a collaborative Australian research platform supported by the National Collaborative Research Infrastructure Strategy (NCRIS).
-
-# (APPENDIX) Appendix {-}
-
-# Feature selection for all months
-
-Figure \@ref(fig:fs-all-periods-months) shows selected variables for all months of the year.
-
-(ref:fs-all-periods-months) Selected features for each month of the year.
-
-```{r fs-all-periods-months, fig.cap="(ref:fs-all-periods-months)"}
-fs_df %>%
-  select(period, month, vars) %>%
-  unnest(cols = c(vars)) %>%
-  mutate(
-    selected = TRUE,
-    month = month(month, label = TRUE)
-  ) %>%
-  spread(vars, selected, fill = FALSE) %>%
-  # Ensure models with no variables selected have white squares plotted
-  right_join(list(
-    month = unique(month(fcst_test_dates)),
-    period = fcst_test_periods
-  ) %>%
-    cross_df() %>%
-    mutate(month = month(month, label = TRUE)),
-  by = c("month", "period")
-  ) %>%
-  gather(vars, selected, -c(period, month)) %>%
-  mutate(
-    selected = tidyr::replace_na(selected, FALSE),
-    vars = fct_rev(factor(vars, levels = predictor_vars)),
-    predictor_type = case_when(
-      str_detect(vars, "^scaled_temperature$") ~ "Forced variable",
-      str_detect(vars, "^scaled_temperature_lag") ~ "Temperature lags",
-      str_detect(vars, "^scaled_temperature_(?!lag)") ~ "Temperature statistic",
-      str_detect(vars, "^scaled_wh_lag") ~ "Demand lags",
-      TRUE ~ "Other"
-    )
-  ) %>%
-  filter(selected == TRUE) %>%
-  ggplot(aes(x = period, y = vars, fill = predictor_type)) +
-  geom_tile() +
-  facet_wrap(~month) +
-  # scale_fill_manual(values = c("white", "#3d6b78")) +
-  labs(
-    x = "Period",
-    y = "Predictor",
-    fill = "Predictor type"
-  ) +
-  theme(
-    panel.grid.major = element_blank(),
-    panel.grid.minor = element_blank(),
-    legend.position = "bottom"
-  ) +
-  scale_x_continuous(breaks = seq(8, 96, 8))
-```
