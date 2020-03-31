@@ -1,0 +1,14 @@
+﻿vars,lag,description,predictor_type
+scaled_temperature,0,Scaled temperature,Temperature lags
+scaled_temperature_lag_12,12,Scaled temperature (3 hour lag),Temperature lags
+scaled_temperature_lag_24,24,Scaled temperature (6 hour lag),Temperature lags
+scaled_temperature_lag_48,48,Scaled temperature (12 hour lag),Temperature lags
+scaled_temperature_lag_96,96,Scaled temperature (1 day lag),Temperature lags
+scaled_temperature_lag_192,192,Scaled temperature (2 day lag),Temperature lags
+scaled_temperature_lag_288,288,Scaled temperature (3 day lag),Temperature lags
+scaled_temperature_max,,Maximum scaled temperature,Temperature statistics
+scaled_temperature_min,,Minimum scaled temperature,Temperature statistics
+scaled_temperature_avg,,Average scaled temperature,Temperature statistics
+scaled_wh_lag_96,96,Scaled Wh (1 day lag),Demand lags
+scaled_wh_lag_192,192,Scaled Wh (2 day lag),Demand lags
+scaled_wh_lag_672,672,Scaled Wh (3 day lag),Demand lags
