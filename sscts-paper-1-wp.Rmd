@@ -307,7 +307,7 @@ Moving away from the energy sector there are more papers to draw from. @Ibrahim2
 
 These papers all point to the viability of using mixed effects models for forecasting. None explored the possibility of conducting scenario analysis by varying the fixed effects within a model. This is surprising as quantifying the impact of different characteristics between subjects is one of the obvious advantages of moving to a mixed effects framework. Our paper gives a simple illustration of how this may be done.
 
-Few papers have attempted to assess the impact of differences in building characteristics using statistical methods and smart meter data. To the author's knowledge, only a previous paper by @Roach2019-ss has looked into this using mixed effects models. Whereas that paper focused on estimating demand impact profiles for building attributes at different times of the year, this paper focuses on improving forecast accuracy and producing scenario analyses by estimating the expected change in time series conditional on the building attributes.
+Few papers have attempted to assess the impact of differences in building characteristics using statistical methods and smart meter data. To the author's knowledge, only a previous paper by @Roach2019-ch has looked into this using mixed effects models. Whereas that paper focused on estimating demand impact profiles for building attributes at different times of the year, this paper focuses on improving forecast accuracy and producing scenario analyses by estimating the expected change in time series conditional on the building attributes.
 
 Several papers have shown the relationship between electricity demand and temperature are well modelled using nonparametric components such as cubic splines [@Hyndman2010-ui; @Fan2012-bs]. This paper uses a similar approach within a mixed model framework. Other papers that explore semiparametric mixed models include @Grajeda2016-vr; @Ugarte2009-hx; and @Durban2005-lk. @Durban2005-lk is of particular note as it introduces the concept of subject-specific curves using piecewise linear splines for longitudinal data. We build on the idea of subject-specific curves by applying them to time series data and incorporating natural splines.
 
@@ -374,14 +374,14 @@ main_df %>%
 
 ## Attribute data
 
-Building attribute data describes different characteristics of each building. The data are Boolean and indicate if a particular attribute is absent or present. A previous paper [@Roach2019-ss] that examined important drivers of commercial office building demand identified the following attributes as relevant:
+Building attribute data describes different characteristics of each building. The data are Boolean and indicate if a particular attribute is absent or present. A previous paper [@Roach2019-ch] that examined important drivers of commercial office building demand identified the following attributes as relevant:
 
 * tenant feed
 * DX system
 * electric element heating
 * centralised distribution.
 
-For a more detailed discussion of each of these attributes refer to @Roach2019-ss.
+For a more detailed discussion of each of these attributes refer to @Roach2019-ch.
 
 ## Modelling the temperature electricity relationship
 
