@@ -138,7 +138,7 @@ if (!file.exists(all_data_file)) {
     mutate(
       temperature = scaled_temperature, # keep original temperature for plotting
       wh_lag_96 = scaled_wh_lag_96      # keep original 96 lag demand for plotting
-    ) %>% 
+    ) %>%
     mutate_at(vars(starts_with("scaled")), scale_dbl) %>% # scale
     select(
       ts, date, period, bid, wh, temperature, wh_lag_96,
@@ -250,33 +250,33 @@ if (!file.exists(model_df_file)) {
 #### Calculate accuracy =======================================================
 if (!file.exists(accuracy_df_file)) {
   message("Calculating accuracy scores...\n\n")
-  
+
   calculate_accuracy <- function(df, periods) {
     df <- df %>%
       unnest_legacy(preds) %>%
       filter(period %in% periods) %>%
       group_by(model)
-    
+
     mase_df <- df %>%
       summarise(mae = mean(abs(resid)))
-    
+
     naive_mae <- mase_df %>%
       filter(model == "Naive") %>%
       pull(mae)
-    
+
     mase_df <- mase_df %>%
       mutate(mase = mae / naive_mae)
-    
+
     accuracy_df <- df %>%
       summarise(
         mape = 100 * mean(abs(resid / wh)),
         smape = 200 * mean(abs(resid) / (pred + wh))
       ) %>%
       inner_join(mase_df, by = "model")
-    
+
     accuracy_df
   }
-  
+
   accuracy_df <- tribble(
     ~working_hours, ~periods,
     "All hours", 1:96,
@@ -285,7 +285,7 @@ if (!file.exists(accuracy_df_file)) {
   ) %>%
     mutate(accuracy = map(periods, ~ calculate_accuracy(model_df, .x))) %>%
     unnest_legacy(accuracy)
-  
+
   save(accuracy_df, file = accuracy_df_file)
 } else {
   message("Loaded accuracy data frame...\n\n")
@@ -356,9 +356,9 @@ main_df %>%
     period %in% c(48, 96)
   ) %>%
   mutate(time = seconds_to_period(period*15*60),
-         time = sprintf("%02d:%02d", time$hour, time$minute)) %>% 
+         time = sprintf("%02d:%02d", time$hour, time$minute)) %>%
   ggplot(aes(x = temperature, y = log(wh), colour = time)) +
-  geom_point() + 
+  geom_point() +
   stat_smooth(geom='line', alpha=1, se=FALSE, method = "lm",
               formula = y ~ ns(x, df = 3)) +
   labs(
@@ -366,7 +366,7 @@ main_df %>%
     x = "Temperature (°C)",
     colour = "Time of day"
   ) +
-  facet_wrap(~bid) + 
+  facet_wrap(~bid) +
   theme(legend.position = "bottom") +
   scale_colour_manual(values=ba_palette[c(3,1)])
 ```
@@ -619,7 +619,7 @@ $$
 \text{CV} = \frac{1}{n} \sum_{i=1}^n \left(\frac{e_i}{1-h_i}\right)^2,
 $$
 
-where $e_i$ are the residuals of the model and $h_i$ are the diagonal elements of the hat-matrix $\mathbf{H} = \mathbf{X} \left( \mathbf{X}' \mathbf{X}  \right)^{-1} \mathbf{X}'$. 
+where $e_i$ are the residuals of the model and $h_i$ are the diagonal elements of the hat-matrix $\mathbf{H} = \mathbf{X} \left( \mathbf{X}' \mathbf{X}  \right)^{-1} \mathbf{X}'$.
 
 Training data are comprised of business days within a window of `r fcst_train_window` days prior to the month we wish to select variables for. As our experimental setup for the validation phase involves one-day ahead forecasts, this variable selection prevents us from using any data from the future. For example, when forecasting for any date in January, only data from the months preceding January would have been used to select predictors.
 
@@ -644,7 +644,7 @@ fs_df %>%
     x = "Number of variables",
     y = "LOOCV scores",
     colour = "Period"
-  ) + 
+  ) +
   scale_x_continuous(breaks=c(0,3,6,9,12)) +
   scale_y_log10()
 ```
@@ -707,12 +707,12 @@ fs_df %>%
   group_by(period, vars) %>%
   summarise(n_selected = sum(selected)) %>%
   ungroup() %>%
-  filter(vars != "scaled_temperature") %>% 
+  filter(vars != "scaled_temperature") %>%
   mutate(selected = if_else(n_selected > 0, TRUE, FALSE)) %>%
-  inner_join(predictor_vars) %>% 
+  inner_join(predictor_vars) %>%
   mutate(description = factor(description, levels = predictor_vars$description,
                               ordered = TRUE),
-         description = fct_rev(description)) %>% 
+         description = fct_rev(description)) %>%
   filter(n_selected > 0) %>% # don't want any fill for 0
   ggplot(aes(x = period, y = description, alpha = n_selected)) +
   geom_tile(fill = ba_palette[1]) +
@@ -745,20 +745,21 @@ Given the SSC and SSCATTR models outperform each of our benchmarks it seems reas
 ```{r accuracy-results}
 accuracy_df %>%
   mutate_if(is.numeric, list(~ as.character(signif(., 3)))) %>%  # scientific notation for INS and decimals for all others
-  group_by(working_hours) %>% 
+  group_by(working_hours) %>%
   mutate_at(
     vars(mape, smape, mae, mase),
     ~ kableExtra::cell_spec(., format = "latex",
                             bold = if_else(. == min(.), T, F))
   ) %>%
-  ungroup() %>% 
+  ungroup() %>%
   select(
     Model = model, MAE = mae, MAPE = mape, sMAPE = smape,
     MASE = mase
-  ) %>% 
+  ) %>%
   knitr::kable(
     format = "latex",
     booktabs = TRUE,
+    longtable = FALSE,
     escape = FALSE,  # allows bold formatting to work
     caption = "(ref:accuracy-results)"
   ) %>%
@@ -779,9 +780,9 @@ model_df %>%
   filter(bid %in% p_bid,
          model %in% c("Naive", "SSC")) %>%
   mutate(ts = as_datetime(fcst_date) + minutes((period - 1) * 24 * 60 / 96)) %>%
-  select(ts, model, Actual = wh, pred, bid) %>% 
-  pivot_wider(names_from = model, values_from = pred) %>% 
-  pivot_longer(cols = c(Actual, Naive, SSC)) %>% 
+  select(ts, model, Actual = wh, pred, bid) %>%
+  pivot_wider(names_from = model, values_from = pred) %>%
+  pivot_longer(cols = c(Actual, Naive, SSC)) %>%
   ggplot(aes(x = ts)) +
   geom_line(aes(y = value, colour = name)) +
   facet_wrap(~bid, ncol = 2, scales = "free_y") +
