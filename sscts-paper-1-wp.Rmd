@@ -26,9 +26,9 @@ output:
     fig_caption: yes
     fig_height: 5
     fig_width: 8
-    # includes:
-    #   in_header: preamble.tex
-    keep_tex: no
+    includes:
+      in_header: preamble.tex
+    keep_tex: yes
     number_sections: yes
     citation_package: biblatex
 ---
@@ -958,3 +958,5 @@ Finally, we included an example of using the SSCATTR model for scenario analysis
 This research project was supported by funding from Buildings Alive. I would like to thank Buildings Alive for making data available and their guidance in understanding commercial building equipment and behaviour. I would also like to thank the reviewers for their thorough and constructive feedback.
 
 This research was supported by use of the Nectar Research Cloud, a collaborative Australian research platform supported by the National Collaborative Research Infrastructure Strategy (NCRIS).
+
+# References {-}
