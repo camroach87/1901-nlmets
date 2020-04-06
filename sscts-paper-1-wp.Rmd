@@ -297,7 +297,7 @@ if (!file.exists(accuracy_df_file)) {
 
 # Introduction
 
-Several papers have examined forecasting electricity demand for buildings by fitting separate models to each building [@Ghofrani2011-tb; @Gajowniczek2014-ek; @Arora2016-zh; @Ben_Taieb2016-wl]. While some have attempted to improve forecasts by leveraging the hierarchical nature of electricity demand [@Ben_Taieb2017-it; @Ben_Taieb2017-ok] few, if any, have explored improving forecast accuracy using a mixed effects framework. If buildings behave in a similar manner a well-specified mixed model may produce more accurate forecasts than individual models. Furthermore, a mixed-model framework allows us to quantify differences between buildings which would not otherwise be possible when using a "building-specific" modelling approach. A mixed effects approach opens the door to scenario analyses by allowing us to estimate how demand might change under different equipment or usage scenarios.
+Several papers have examined forecasting electricity demand for buildings by fitting separate models to each building [@Ghofrani2011-tb; @Gajowniczek2014-ek; @Arora2016-zh; @Ben_Taieb2016-wl]. While some have attempted to improve forecasts by leveraging the hierarchical nature of electricity demand [@Ben_Taieb2020-it; @Ben_Taieb2017-ok] few, if any, have explored improving forecast accuracy using a mixed effects framework. If buildings behave in a similar manner a well-specified mixed model may produce more accurate forecasts than individual models. Furthermore, a mixed-model framework allows us to quantify differences between buildings which would not otherwise be possible when using a "building-specific" modelling approach. A mixed effects approach opens the door to scenario analyses by allowing us to estimate how demand might change under different equipment or usage scenarios.
 
 This paper explores how electricity forecasting accuracy can be improved by using mixed effects models. We examine if mixed models can produce forecasts as accurately as separate models fit for each subject. We approach the problem in the context of producing one-day ahead forecasts of electricity demand for `r n_buildings` commercial office buildings in Australia. When working with mixed effects models, each building is treated as a random effect and building characteristics are treated as fixed effects. We attempt to model the relationship between temperature and demand using both linear and spline based methods.
 
@@ -307,7 +307,7 @@ Moving away from the energy sector there are more papers to draw from. @Ibrahim2
 
 These papers all point to the viability of using mixed effects models for forecasting. None explored the possibility of conducting scenario analysis by varying the fixed effects within a model. This is surprising as quantifying the impact of different characteristics between subjects is one of the obvious advantages of moving to a mixed effects framework. Our paper gives a simple illustration of how this may be done.
 
-Few papers have attempted to assess the impact of differences in building characteristics using statistical methods and smart meter data. To the author's knowledge, only a previous paper by @Roach2019-ch has looked into this using mixed effects models. Whereas that paper focused on estimating demand impact profiles for building attributes at different times of the year, this paper focuses on improving forecast accuracy and producing scenario analyses by estimating the expected change in time series conditional on the building attributes.
+Few papers have attempted to assess the impact of differences in building characteristics using statistical methods and smart meter data. To the author's knowledge, only a previous paper by @Roach2020-ch has looked into this using mixed effects models. Whereas that paper focused on estimating demand impact profiles for building attributes at different times of the year, this paper focuses on improving forecast accuracy and producing scenario analyses by estimating the expected change in time series conditional on the building attributes.
 
 Several papers have shown the relationship between electricity demand and temperature are well modelled using nonparametric components such as cubic splines [@Hyndman2010-ui; @Fan2012-bs]. This paper uses a similar approach within a mixed model framework. Other papers that explore semiparametric mixed models include @Grajeda2016-vr; @Ugarte2009-hx; and @Durban2005-lk. @Durban2005-lk is of particular note as it introduces the concept of subject-specific curves using piecewise linear splines for longitudinal data. We build on the idea of subject-specific curves by applying them to time series data and incorporating natural splines.
 
@@ -374,14 +374,14 @@ main_df %>%
 
 ## Attribute data
 
-Building attribute data describes different characteristics of each building. The data are Boolean and indicate if a particular attribute is absent or present. A previous paper [@Roach2019-ch] that examined important drivers of commercial office building demand identified the following attributes as relevant:
+Building attribute data describes different characteristics of each building. The data are Boolean and indicate if a particular attribute is absent or present. A previous paper [@Roach2020-ch] that examined important drivers of commercial office building demand identified the following attributes as relevant:
 
 * tenant feed
 * DX system
 * electric element heating
 * centralised distribution.
 
-For a more detailed discussion of each of these attributes refer to @Roach2019-ch.
+For a more detailed discussion of each of these attributes refer to @Roach2020-ch.
 
 ## Modelling the temperature electricity relationship
 
@@ -607,7 +607,7 @@ Carrying out feature selection for such a wide range of models was a difficult p
 
 Table \@ref(tab:weather-vars) shows a list of demand variables that were considered for our modelling. Lagged temperature variables are used to model the impact of thermal inertia in buildings. For example, high overnight temperatures in summer may result in high demand on the following day due to the increased cooling loads required to maintain suitable indoor environment quality. The maximum and minimum temperatures from the last 24 hours are also considered, as well as the mean temperature over the previous three days. Lagged demand values of 1, 2 and 7 days are included to capture any serial correlation in the observed demand time series.
 
-Numerous studies have already shown the link between electricity demand and current temperature [@Ben_Taieb2016-wl; @Fan2012-bs; @Roach2018-pf; @Hong2016-lo; @Hong2019-ie]. Hence, we chose to conduct feature selection conditional on the current temperature being included. There were several reasons for this:
+Numerous studies have already shown the link between electricity demand and current temperature [@Ben_Taieb2016-wl; @Fan2012-bs; @Roach2019-pf; @Hong2016-lo; @Hong2019-ie]. Hence, we chose to conduct feature selection conditional on the current temperature being included. There were several reasons for this:
 
   * Much of the literature on load forecasting already identifies the importance of current temperature in forecasting demand and we can see clear nonlinear relationships in Figure \@ref(fig:temp-wh-scatter).
   * As temperature is strongly correlated with recent values there were occasions when the current temperature would not be selected but a slightly lagged variable would be. This seemed unrealistic and was likely caused by noise in the data rather than a lagged temperature being a better predictor than actual temperature.
