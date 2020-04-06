@@ -821,10 +821,7 @@ model_df %>%
   spread(model, resid) %>%
   group_by(period) %>%
   nest() %>%
-  mutate( # t_test = map(data, ~ t.test(.$ILR, .$SSCATTR)),
-    # t_value = map_dbl(t_test, "statistic"),
-    # t_p_value = map_dbl(t_test, "p.value"),
-    # dm_test = map(data, ~ dm.test(.$ILR, .$SSCATTR, alternative = "two.sided")),
+  mutate(
     dm_test = map(data, ~ dm.test(.$ILR, .$SSCATTR,
       alternative = "greater", h = 1
     )),
