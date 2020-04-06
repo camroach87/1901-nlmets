@@ -970,7 +970,7 @@ This research project was supported by funding from Buildings Alive. I would lik
 
 This research was supported by use of the Nectar Research Cloud, a collaborative Australian research platform supported by the National Collaborative Research Infrastructure Strategy (NCRIS).
 
-# Data Availability Statement
+# Data Availability Statement {-}
 
 The data that support the findings of this study are available from Buildings Alive. Restrictions apply to the availability of these data, which were used under license for this study. Data are available from the authors with the permission of Buildings Alive.
 
