@@ -438,18 +438,18 @@ Several linear and mixed effects models were tested to determine which produced 
 
 To justify our final model that we use for scenario analysis we test several models that can be thought of as simpler versions. Each model has a change introduced and the improvement in performance is used as justification for each. As a starting benchmark, we fit a naive model that uses the previous day's observed values. The second model fit individual linear regression models to each building. The third model also involves fitting a set of individual models but incorporate natural splines to model the temperature and demand relationships. The fourth model is the first to be trained using data from all the buildings and treats each building as a dummy variable. The fifth, sixth and seventh models are random intercept, random slope and subject-specific curve models. Finally, the eighth model is a subject-specific curve model that includes building attributes as fixed effects. This is summarised in Table \@ref(tab:model-frameworks).
 
-Table: (\#tab:model-frameworks) Model descriptions
+(ref:model-frameworks) Model descriptions
 
-Model                   | Abbreviation | Description              | Predictor Variables
-------------------------|------------|--------------------------|-------------------
-Naive                        | Naive | Naive forecasting model  | Previous day's demand
-Individual linear regression | ILR   | Linear regression models fit to each building | Current temperature
-Individual natural splines   | INS  | Natural spline models fit to each building | Current temperature
-Pooled regression            | PR | Regression model. Used for feature selection | Current temperature, selected features
-Random intercept             | RI   | Mixed effects model with random intercept | Current temperature, selected features
-Random intercept and slope   | RIS   | Mixed effects model with random intercept and slope | Current temperature, selected features
-Subject-specific curves      | SSC  | Mixed effects model with subject-specific curves | Current temperature, selected features
-Subject-specific curves with attributes | SSCATTR | SSC with building attributes included as fixed effects | Current temperature, selected features
+```{r model-frameworks}
+read_csv("data/model-descriptions.csv") %>% 
+  knitr::kable(
+    format = "latex",
+    booktabs = TRUE,
+    caption = "(ref:model-frameworks)",
+    longtable = FALSE
+  ) %>%
+  kableExtra::kable_styling(full_width = TRUE)
+```
 
 Due to the evolving nature of energy demand across the day we fit separate models for each 15-minute period of the day. This gives 96 models for each building when fitting individual model formulations and 96 models for each mixed effects formulation.
 
@@ -495,7 +495,7 @@ We use natural splines with three degrees of freedom as our smooth functions. Kn
 \caption{\label{tab:weather-vars} Predictor variables evaluated during feature selection when determining $\mathcal{P}_t$.}
 
 \centering
-\begin{tabular}{lllll}
+\begin{tabular}{lrl}
 \toprule
 Variable $x_{b,i,t}$ & Lag (15-minute periods) & Description \\
 \midrule
@@ -743,8 +743,16 @@ Given the SSC and SSCATTR models outperform each of our benchmarks it seems reas
 (ref:accuracy-results) Forecasting accuracy measures for each model across the entire day, business hours (7:00 am to 7:00 pm) and non-business hours (7:00 pm to 7:00 am).
 
 ```{r accuracy-results}
+format_digits <- function(x, ...) {
+  x <- signif(x, ...)
+  x.nchar <- map(str_extract_all(x, "[0-9]+"), ~ sum(nchar(.)))
+  x.nchar <- max(unlist(x.nchar))
+  x <- format(x, digits = 5)
+  x
+}
+
 accuracy_df %>%
-  mutate_if(is.numeric, list(~ as.character(signif(., 3)))) %>%  # scientific notation for INS and decimals for all others
+  mutate_if(is.numeric, ~ format_digits(., digits = 3)) %>% 
   group_by(working_hours) %>%
   mutate_at(
     vars(mape, smape, mae, mase),
@@ -831,14 +839,19 @@ model_df %>%
     dm_p_value < 0.1 ~ ".",
     TRUE ~ ""
   )) %>%
+  mutate(
+    dm_p_value = if_else(dm_p_value<0.001, "< 0.001",
+                         as.character(round(dm_p_value, 3))),
+    dm_statistic = round(dm_statistic, 3)) %>% 
   rename(
     Period = period, `DM statistic` = dm_statistic,
-    `p-value` = dm_p_value, Significance = significance
+    `p-value` = dm_p_value, Significance = significance,
   ) %>%
   knitr::kable(
     format = "latex",
     booktabs = TRUE,
-    caption = "(ref:dm-test-periods-cap)"
+    caption = "(ref:dm-test-periods-cap)",
+    align = "rrrl"
   ) %>%
   kableExtra::kable_styling()
 ```

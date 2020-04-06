@@ -1,0 +1,9 @@
+Model,Abbreviation,Description,Predictor Variables
+Naive,Naive,Naive forecasting model,Previous day's demand
+Individual linear regression,ILR,Linear regression models fit to each building,Current temperature
+Individual natural splines,INS,Natural spline models fit to each building,Current temperature
+Pooled regression,PR,Regression model. Used for feature selection,"Current temperature, selected features"
+Random intercept,RI,Mixed effects model with random intercept,"Current temperature, selected features"
+Random intercept and slope,RIS,Mixed effects model with random intercept and slope,"Current temperature, selected features"
+Subject-specific curves,SSC,Mixed effects model with subject-specific curves,"Current temperature, selected features"
+Subject-specific curves with attributes,SSCATTR,SSC with building attributes included as fixed effects,"Current temperature, selected features"
