@@ -381,9 +381,30 @@ Building attribute data describes different characteristics of each building. Th
 
 For a more detailed discussion of each of these attributes refer to @Roach2020-ch.
 
-## Modelling the temperature electricity relationship
+# Methodology
 
-The relationship between temperature and electricity demand is shown in Figure \@ref(fig:plot-linear-cubic-splines). The relationship is modelled using three approaches: a linear spline, cubic spline and natural spline. All are fitted with three degrees of freedom. We can see that using the linear spline doesn't capture the smooth sigmoid like curve of the relationship whereas the cubic spline appears to extrapolate in an unrealistic manner at the extreme temperatures. The natural spline has less pronounced movement near the extremes due to the linearity constraint and so it is preferred over the other two methods. Hence, each weather variable and lagged weather variable is modelled using a natural spline with three degrees of freedom. Knots were placed at the 33^rd^ and 67^th^ quantiles.
+Several linear and mixed effects models were tested to determine which produced the most accurate forecasts conditional on selected features. Here we describe the various benchmarking and mixed effects models and their formulations. All analysis was produced using the R statistical programming language [@R-base]. Mixed effects models were fit using the `lme4` package for mixed effects models [@R-lme4].
+
+## Model formulation
+
+To justify our final model we test several models that can be thought of as simpler versions. Each model has a change introduced and the improvement in performance is used as justification for each. As a starting benchmark, we fit a naive model that uses the previous day's observed values. The second model fit individual linear regression models to each building. The third model also involves fitting a set of individual models but incorporate natural splines to model the temperature and demand relationships. The fourth model is the first to be trained using data from all the buildings and treats each building as a dummy variable. The fifth, sixth and seventh models are random intercept, random slope and subject-specific curve models. Finally, the eighth model is a subject-specific curve model that includes building attributes as fixed effects. This is summarised in Table \@ref(tab:model-frameworks).
+
+(ref:model-frameworks) Model descriptions
+
+```{r model-frameworks}
+read_csv("data/model-descriptions.csv") %>% 
+  knitr::kable(
+    format = "latex",
+    booktabs = TRUE,
+    caption = "(ref:model-frameworks)",
+    longtable = FALSE
+  ) %>%
+  kableExtra::kable_styling(full_width = TRUE)
+```
+
+Due to the evolving nature of energy demand across the day we fit separate models for each 15-minute period of the day. This gives 96 models for each building when fitting individual model formulations and 96 models for each mixed effects formulation.
+
+Throughout our modelling we use natural splines to fit the relationship between predictor variables and demand. This differs somewhat from other studies on semiparametric mixed effects models which use piecewise linear splines to model variable relationships [@Durban2005-lk]. An example for temperature and electricity demand is shown in Figure \@ref(fig:plot-linear-cubic-splines). We see that a natural spline gives a more reasonable fit at the sparsely populated extremes compared to other spline functions.
 
 (ref:linear-cubic-splines-cap) Linear and cubic splines with three degrees of freedom fit to one building's demand data during Summer at 11:45 am. We observe that the linear spline results in severe kinks in the relationship which seems unrealistic. The cubic spline gives a much smoother fit and appears to be the more reasonable option. The natural spline is better again as it does not have the dramatic dip in predicted demand that the cubic spline has for high temperatures.
 
@@ -427,31 +448,6 @@ ggplot(mapping = aes(x = temperature)) +
   ) +
   theme(legend.position = "none")
 ```
-
-# Methodology
-
-Several linear and mixed effects models were tested to determine which produced the most accurate forecasts conditional on selected features. Here we describe the various benchmarking and mixed effects models and their formulations. All analysis was produced using the R statistical programming language [@R-base]. Mixed effects models were fit using the `lme4` package for mixed effects models [@R-lme4].
-
-## Model formulation
-
-To justify our final model we test several models that can be thought of as simpler versions. Each model has a change introduced and the improvement in performance is used as justification for each. As a starting benchmark, we fit a naive model that uses the previous day's observed values. The second model fit individual linear regression models to each building. The third model also involves fitting a set of individual models but incorporate natural splines to model the temperature and demand relationships. The fourth model is the first to be trained using data from all the buildings and treats each building as a dummy variable. The fifth, sixth and seventh models are random intercept, random slope and subject-specific curve models. Finally, the eighth model is a subject-specific curve model that includes building attributes as fixed effects. This is summarised in Table \@ref(tab:model-frameworks).
-
-(ref:model-frameworks) Model descriptions
-
-```{r model-frameworks}
-read_csv("data/model-descriptions.csv") %>% 
-  knitr::kable(
-    format = "latex",
-    booktabs = TRUE,
-    caption = "(ref:model-frameworks)",
-    longtable = FALSE
-  ) %>%
-  kableExtra::kable_styling(full_width = TRUE)
-```
-
-Due to the evolving nature of energy demand across the day we fit separate models for each 15-minute period of the day. This gives 96 models for each building when fitting individual model formulations and 96 models for each mixed effects formulation.
-
-Throughout our modelling we use natural splines to model the relationship between predictor variables and demand. This differs somewhat from other studies on semiparametric mixed effects models which use piecewise linear splines to model variable relationships [@Durban2005-lk]. However, when we inspect Figure \@ref(fig:plot-linear-cubic-splines) we see that a natural spline gives a more reasonable fit at the sparsely populated extremes when dealing with temperature data.
 
 Predictors are centered and scaled prior to training models. The exact features that are used for models are determined through our feature selection approach (Section \@ref(feature-selection)). Models are fit by maximising the log-likelihood criterion.
 
