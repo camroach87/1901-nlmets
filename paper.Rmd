@@ -475,12 +475,9 @@ where $p$ is the 15-minute period of the day at time $t$, $w_{0,t}$ is the scale
 
 A linear relationship between temperature and electricity demand may not be sufficient to adequately capture the relationship between the two. Natural cubic splines allow a more flexible relationship between predictors and the response. In this model the log demand of each building is modelled separately using natural splines. A building's demand based on temperature and other selected predictors is given by
 $$
-\begin{gathered}
-\log y_{t} = f_p(w_{0,t}) + \epsilon_{t}, \quad \epsilon_{t} \sim N(0, \sigma^2_{p}), \\
-f_p(x) = \sum^K_{k=1} \beta_{p,k} (x - \kappa_k)_+^3,
-\end{gathered}
+\log y_{t} = f_p(w_{0,t}) + \epsilon_{t}, \quad \epsilon_{t} \sim N(0, \sigma^2_{p}),
 $$
-where $f_p$ is a smooth function modelling the relationship between $w_{0,t}$ and the logged demand for period $p$. We refer to this set of models as the "Individual Natural Spline" (INS) models.
+where $f_p$ is a smooth function modelling the relationship between $w_{0,t}$ and the logged demand for period $p$. The function $f_p$ is modelled using natural cubic splines with three degrees of freedom. Knots are set at the 33.3^rd^ and 66.6^th^ quantiles of $w_{0,t}$. We refer to this set of models as the "Individual Natural Spline" (INS) models.
 
 We use natural splines with three degrees of freedom as our smooth functions. Knot positions $\kappa_k$ are calculated based on quantiles of the data. Natural splines are chosen over other types as they enforce the constraint of linearity beyond the boundary points, which seems a fair assumption when considering the behaviour of electricity demand consumption in relation to extreme temperatures (see Figure \@ref(fig:plot-linear-cubic-splines) for an illustration). We wish to create a parsimonious model and assuming anything beyond a linear relationship in the extremes seems contrary to that aim. Failing to enforce the linearity constraint may result in unusual relationships being predicted if extrapolating beyond the training data.
 
@@ -519,20 +516,17 @@ Additional predictor variables are introduced in this model, such as lagged temp
 
 The demand of building $b$ at time $t$ is given by
 $$
-\begin{gathered}
-\log y_{b,t} = \sum_{x_{b,i,t} \in \mathcal{P}_t } f_{i,p}(x_{b,i,t}) + \alpha_{b,p}+ \epsilon_{b,t}, \quad \epsilon_{b,t} \sim N(0, \sigma^2_{p}), \\
-f_{i,p}(x) = \sum^K_{k=1} \beta_{i,p,k} (x - \kappa_k)_+^3,
-\end{gathered}
+\log y_{b,t} = \sum_{x_{b,i,t} \in \mathcal{P}_t } f_{i,p}(x_{b,i,t}) + \alpha_{b,p}+ \epsilon_{b,t}, \quad \epsilon_{b,t} \sim N(0, \sigma^2_{p}),
 $$
-where $x_{b,i,t}$ is the value of building $b$'s $i$^th^ predictor variable at time $t$ and $f_{i,p}$ is a smooth function modelling the relationship between $x_{b,i,t}$ and the logged demand for period $p$. A dummy variable $\alpha_{b,p}$ has been added to account for differences in each building's consumption. We call this our "Pooled Regression" (PR) model.
+where $x_{b,i,t}$ is the value of building $b$'s $i$^th^ predictor variable at time $t$ and $f_{i,p}$ is a smooth function modelling the relationship between $x_{b,i,t}$ and the logged demand for period $p$. Again, the function $f_{i,p}$ is modelled using natural cubic splines with three degrees of freedom and knots set at the 33.3^rd^ and 66.6^th^ quantiles of each predictor $x_{b,i,t}$. A dummy variable $\alpha_{b,p}$ has been added to account for differences in each building's consumption. We call this our "Pooled Regression" (PR) model.
 
-We do not estimate a separate smooth relationship between weather variables and demand for each building in the pooled model. Instead, we estimate the population's relationship. So, for the $i$^th^ predictor we construct a smooth function $f_{i,p}$ for all buildings instead of a set of smooth functions $f_{b,i,p}$ for each building.
+We do not estimate a separate smooth relationship between predictor variables and demand for each building in the pooled model. Instead, we estimate the population's relationship. So, for the $i$^th^ predictor we construct a smooth function $f_{i,p}$ for all buildings instead of a set of smooth functions $f_{b,i,p}$ for each building.
 
 ### Mixed models
 
 Having specified our framework for fitting separate models to each building it is now time to explore fitting mixed models. In each mixed effects model that follows, all buildings are included by treating each as a random effect. In section \@ref(forecasting-accuracy) we show that mixed models improve prediction accuracy and have the added benefit of allowing us to quantify the impact of building attributes on electricity demand.
 
-Originally, random effects were incorporated into each of the lagged weather variables, but this resulted in very poor fits presumably due to the high dimensionality. Instead, as with the PR model, we model the population relationship for all selected predictor variables and allow for subject-specific differences using random intercepts, random slopes and subject-specific curves (based on current temperature).
+Originally, random effects were incorporated into each of the lagged temperature and lagged demand variables, but this resulted in very poor fits presumably due to the high dimensionality. Instead, as with the PR model, we model the population relationship for all selected predictor variables and allow for subject-specific differences using random intercepts, random slopes and subject-specific curves (based on current temperature).
 
 As with the PR model, we include subscripts $b$ to denote each building. Unlike the individual formulations, which had separate models fit to each building, all buildings are used when training the mixed effects models and so we include an additional subscript to denote this. Again, to capture changing demand characteristics across the day, separate models are fit for each 15-minute period of the day giving 96 models for each mixed effects formulation.
 
@@ -542,7 +536,6 @@ The simplest mixed effects model is a random intercept (RI) model. We model the 
 $$
 \begin{gathered}
 \log y_{b,t} = \sum_{x_{b,i,t} \in \mathcal{P}_t } f_{i,p}(x_{b,i,t}) + u_{b,p} + \epsilon_{b,t}, \\
-f_{i,p}(x) = \sum^K_{k=1} \beta_{i,p,k} (x - \kappa_k)_+^3, \\
 \epsilon_{b,t} \sim N(0, \sigma^2_{\epsilon, p}), \quad u_{b,p} \sim N(0, \sigma_{u,p}^2),
 \end{gathered}
 $$
@@ -554,7 +547,6 @@ Expanding on this is the random intercept and slope (RIS) model which has a rand
 $$
 \begin{gathered}
 \log y_{bt} = \sum_{x_{b,i,t} \in \mathcal{P}_t } f_{i,p}(x_{b,i,t}) + u_{b,p,1} + u_{b,p,2} w_{b,0,t} + \epsilon_{b,t}, \\
-f_{i,p}(x) = \sum^K_{k=1} \beta_{i,p,k} (x - \kappa_k)_+^3, \\
 \epsilon_{b,t} \sim N(0, \sigma^2_{\epsilon, p}), \quad
 (u_{b,p,1}, u_{b,p,2})^T \sim N(0, \Sigma), \quad
 \Sigma = \begin{bmatrix}
@@ -572,13 +564,18 @@ As the relationship between demand and temperature can be quite nonlinear we als
 $$
 \begin{gathered}
 \log y_{bt} = \sum_{x_{b,i,t} \in \mathcal{P}_t } f_{i,p}(x_{b,i,t}) + g_{b,p}( w_{b,0,t} ) + \epsilon_{b,t}, \\
-f_{i,p}(x) = \sum^K_{k=1} \beta_{i,p,k} (x - \kappa_k)_+^3, \quad g_{b,p}(x) = \sum^K_{k=1} u_{b,p,k} (x - \kappa_k)_+^3, \\
-\epsilon_{b,t} \sim N(0, \sigma^2_{\epsilon, p}), \quad
-u_{b,p,k} \sim N(0, \sigma^2_{u,p}).
+\epsilon_{b,t} \sim N(0, \sigma^2_{\epsilon, p}).
 \end{gathered}
 $$
 
-As with our other models we use natural cubic splines with three degrees of freedom for both $f_{i,p}$ and $g_{b,p}$. This model allows us to capture separate temperature and electricity relationships for each building while also including the population relationships between electricity demand and other selected predictors.
+As with our other models we use natural cubic splines with three degrees of freedom for our smooth function $f_{i,p}$. The function $g_{b,p}$ is a subject specific curve and is defined as
+$$
+\begin{gathered}
+g_{b,p}(x) = u_{b,p,0} + \sum^3_{k=1} u_{b,p,k} B_{p,k}(x), \\
+\left( u_{b,p,0}, \ldots, u_{b,p,3} \right) \sim N(0, \Sigma),
+\end{gathered}
+$$
+where $B_{p,k}$ are cubic B-spline basis functions and $u_{b,p,k}$ are correlated random effects. This model allows us to capture separate temperature and electricity relationships for each building while also including the population relationships between electricity demand and other selected predictors.
 
 #### Subject-specific curves with attributes model
 
@@ -588,12 +585,10 @@ Our model is given below
 $$
 \begin{gathered}
 \log y_{bt} = \sum_{x_{b,i,t} \in \mathcal{P}_t } f_{i,p}(x_{b,i,t}) + g_{b,p}( w_{b,0,t} ) + \sum_{a \in \mathcal{A}} \beta_a x_{b,a} + \epsilon_{b,t}, \\
-f_{i,p}(x) = \sum^K_{k=1} \beta_{i,p,k} (x - \kappa_k)_+^3, \quad g_{b,p}(x) = \sum^K_{k=1} u_{b,p,k} (x - \kappa_k)_+^3, \\
-\epsilon_{b,t} \sim N(0, \sigma^2_{\epsilon, p}), \quad
-u_{b,p,k} \sim N(0, \sigma^2_{u,p}).
+\epsilon_{b,t} \sim N(0, \sigma^2_{\epsilon, p}),
 \end{gathered}
 $$
-This is the same as our SSC model with the addition of the building attributes. The fixed effect $x_{b,a}$ is a Boolean variable that indicates if attribute $a$ is present for building $b$. Including building attributes as fixed effects allows one to conduct scenario analyses by predicting the expected demand with and without certain attributes present.
+where all terms and functions are defined as in the SSC model. The new fixed effect $x_{b,a}$ is a Boolean variable that indicates if attribute $a$ is present for building $b$. Including building attributes as fixed effects allows one to conduct scenario analyses by predicting the expected demand with and without certain attributes present.
 
 ## Feature selection
 
@@ -617,9 +612,9 @@ where $e_i$ are the residuals of the model and $h_i$ are the diagonal elements o
 
 Training data are comprised of business days within a window of `r fcst_train_window` days prior to the month we wish to select variables for. As our experimental setup for the validation phase involves one-day ahead forecasts, this variable selection prevents us from using any data from the future. For example, when forecasting for any date in January, only data from the months preceding January would have been used to select predictors.
 
-We use best subset selection during feature selection. Given $p$ predictors we choose the combination of these that produce the best $R^2$ scores. Once the best model based on $R^2$ has been determined for each set of $p$ predictors, we use the LOOCV score to determine the overall best. The LOOCV score is chosen as it gives an estimate of the out of sample performance of our models. Figure \@ref(fig:fs-model-selection) shows the LOOCV scores for each predictor set of size $p$. During feature selection we chose to avoid greedy approaches such as forward or backward stepwise selection; or approaches that work systematically through lagged weather variables [@Hyndman2010-ui]. Naturally, greedy methods have computational benefits, but it is interesting to observe which features are chosen when _all_ possible predictor combinations are assessed.
+We use best subset selection during feature selection. Given $m$ predictors we choose the combination of these that produce the best $R^2$ scores. Once the best model based on $R^2$ has been determined for each set of $m$ predictors, we use the LOOCV score to determine the overall best. The LOOCV score is chosen as it gives an estimate of the out of sample performance of our models. Figure \@ref(fig:fs-model-selection) shows the LOOCV scores for each predictor set of size $m$. During feature selection we chose to avoid greedy approaches such as forward or backward stepwise selection; or approaches that work systematically through lagged predictor variables [@Hyndman2010-ui]. Naturally, greedy methods have computational benefits, but it is interesting to observe which features are chosen when _all_ possible combinations are assessed.
 
-A key point to note is that feature selection was done on the weather variables and _not_ the spline basis functions. Doing so would destroy the properties of a spline if only a subset of its basis functions were to be selected.
+A key point to note is that feature selection was done on the predictor variables and _not_ the spline basis functions. Doing so would destroy the properties of a spline if only a subset of its basis functions were to be selected.
 
 (ref:fs-model-selection) LOOCV scores (log scale) for each month. In general, the LOOCV errors initially decrease as variables are added, but begin to increase slightly at a certain point for each period.
 
@@ -676,7 +671,7 @@ In order to build a better understanding of how a mixed model framework improves
 Figure \@ref(fig:fs-alpha) show the number of times each variable is selected for all months of the year. There is a lot of variation in the selected predictors, even between adjacent 15-minute periods. By overlaying all of the months we do observe some structure. Perhaps the most noticeable characteristic is that temperature variables are selected more often during business hours, which shows the influence temperature has on demand during the day and how temperature influences occupant behaviour. Outside of these hours we see fewer temperature variables selected. Another point of interest is that during business hours, lagged demand variables are selected less often than for non-business hours. It would appear as though serial correlation in the demand time series is a more useful predictor during non-business hours than temperature. Thermal inertia does not appear to influence demand as much during non-business hours.
 
 
-(ref:fs-alpha) Feature selection for all months. The number of times a variable has been selected across all 12 months is indicated by the transparency of each tile for a given period. In general, weather features are selected more often during business hours. During non-business hours, weather features are selected less often, but lagged demand variables are almost always selected.
+(ref:fs-alpha) Feature selection for all months. The number of times a variable has been selected across all 12 months is indicated by the transparency of each tile for a given period. In general, temperature features are selected more often during business hours. During non-business hours, temperature features are selected less often, but lagged demand variables are almost always selected.
 
 ```{r fs-alpha, fig.height = 6, fig.cap="(ref:fs-alpha)"}
 fs_df %>%
