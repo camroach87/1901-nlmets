@@ -383,6 +383,8 @@ For a more detailed discussion of each of these attributes refer to @Roach2020-c
 
 # Methodology
 
+We focus on the problem of one day ahead electricity demand forecasting for commercial buildings. This has important applications such as allowing facility managers to adequately prepare a building for demand response (by adjusting set points and operational schedules) and reducing peak demand to avoid high capacity^[Peak demand events over a certain time frame are often factored into a commercial building's electricity tariffs. These are known as capacity charges.] or time of use charges.
+
 Several linear and mixed effects models were tested to determine which produced the most accurate forecasts conditional on selected features. Here we describe the various benchmarking and mixed effects models and their formulations. All analysis was produced using the R statistical programming language [@R-base]. Mixed effects models were fit using the `lme4` package for mixed effects models [@R-lme4].
 
 ## Model formulation
@@ -512,7 +514,7 @@ $y_{b,672,t}$ & 672 & Scaled actual demand lagged by 1 week. \\
 
 Our pooled regression model is fit using data from all buildings. One model is fit for each 15-minute period of the day which is then used to predict demand of each building $b$ at time $t$. Note that since all buildings are included in the model, we introduce the $b$ subscript for buildings.
 
-Additional predictor variables are introduced in this model, such as lagged temperature variables; maximum, minimum and average temperatures; and lagged demand. A description of each predictor is presented in Table \@ref(tab:weather-vars). We denote this set of predictor variables as $\mathcal{P}_t$, which contains the selected variables for the 15-minute period of day and month at time $t$. The exact combination of variables is chosen via our feature selection methodology described in Section \@ref(feature-selection). This model is used when selecting features as it is much faster to train than a mixed effects model.
+Additional predictor variables are introduced in this model, such as lagged temperature variables; maximum, minimum and average temperatures; and lagged demand. When doing one day ahead forecasts we do not have have demand observations within the last 24 hours to use as lags and so we restrict our lagged demand variables to 1 day, 2 days and 3 days. The temperature variables can have 1-24 hour lags as temperature forecasts can be used to supplement the already observed data. Note that in this paper we restrict ourselves to using actual temperature data and not forecast temperature data to ensure our results are dependent on model formulations and not on any errors in temperature forecasts. In practice, forecast temperature data can be used instead. A description of each predictor is presented in Table \@ref(tab:weather-vars). We denote this set of predictor variables as $\mathcal{P}_t$, which contains the selected variables for the 15-minute period of day and month at time $t$. The exact combination of variables is chosen via our feature selection methodology described in Section \@ref(feature-selection). This model is used when selecting features as it is much faster to train than a mixed effects model.
 
 The demand of building $b$ at time $t$ is given by
 $$
