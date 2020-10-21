@@ -1,5 +1,5 @@
 ---
-title: "Subject-specific curves for time series forecasting of smart meter demand"
+title: "Nonlinear mixed effects models for time series forecasting of smart meter demand"
 author:
 - familyname: Roach
   othernames: Cameron
@@ -9,10 +9,10 @@ author:
 - familyname: Hyndman
   othernames: Rob
   address: Monash University
-- familyname: Taieb
-  othernames: Souhaib Ben
+- familyname: Ben Taieb
+  othernames: Souhaib
   address: University of Mons
-abstract: Buildings are typically equipped with smart meters to measure electricity demand at regular intervals. Smart meter data for a single building have many uses, such as forecasting and assessing overall building performance. However, when data are available from multiple buildings, there are additional applications that are rarely explored. For instance, we can explore how different building characteristics influence energy demand. If each building is treated as a random effect and building characteristics are handled as fixed effects, a mixed effects model can be used to estimate how characteristics affect energy usage. In this paper we demonstrate that producing one-day ahead demand predictions for 123 commercial office buildings using mixed models can improve forecasting accuracy. We experiment with random intercept, random intercept and slope, and subject-specific curve mixed models. The predictive performance of the mixed effects models are tested against naive, linear and nonlinear benchmark models fitted to each building separately. Having justified the use of a mixed model framework, we provide an example showing how mixed model frameworks can, when combined with smart meter data and building attributes, be used to carry out scenario analysis. We demonstrate how expected electricity consumption may increase or decrease given a change in building attributes. This research justifies using mixed models to improve forecasting accuracy and to quantify changes in energy consumption under different building configuration scenarios.
+abstract: Buildings are typically equipped with smart meters to measure electricity demand at regular intervals. Smart meter data for a single building have many uses, such as forecasting and assessing overall building performance. However, when data are available from multiple buildings, there are additional applications that are rarely explored. For instance, we can explore how different building characteristics influence energy demand. If each building is treated as a random effect and building characteristics are handled as fixed effects, a mixed effects model can be used to estimate how characteristics affect energy usage. In this paper we demonstrate that producing one day ahead demand predictions for 123 commercial office buildings using mixed models can improve forecasting accuracy. We experiment with random intercept, random intercept and slope, and nonlinear mixed models. The predictive performance of the mixed effects models are tested against naive, linear and nonlinear benchmark models fitted to each building separately. This research justifies using mixed models to improve forecasting accuracy and to quantify changes in energy consumption under different building configuration scenarios.
 keywords: "time series forecasting, mixed-effects models, smart meters, energy, electricity"
 wpnumber: 1/19
 jelcodes: C10,C14,C52
@@ -297,23 +297,21 @@ if (!file.exists(accuracy_df_file)) {
 
 # Introduction
 
-Several papers have examined forecasting electricity demand for buildings by fitting separate models to each building [@Ghofrani2011-tb; @Gajowniczek2014-ek; @Arora2016-zh; @Ben_Taieb2016-wl]. While some have attempted to improve forecasts by leveraging the hierarchical nature of electricity demand [@Ben_Taieb2020-it; @Ben_Taieb2017-ok] few, if any, have explored improving forecast accuracy using a mixed effects framework. If buildings behave in a similar manner a well-specified mixed model may produce more accurate forecasts than individual models. Furthermore, a mixed-model framework allows us to quantify differences between buildings which would not otherwise be possible when using a "building-specific" modelling approach. A mixed effects approach opens the door to scenario analyses by allowing us to estimate how demand might change under different equipment or usage scenarios.
+Several papers have examined forecasting electricity demand for buildings by fitting separate models to each building [@Ghofrani2011-tb; @Gajowniczek2014-ek; @Arora2016-zh; @Ben_Taieb2016-wl]. While some have attempted to improve forecasts by leveraging the hierarchical nature of electricity demand [@Ben_Taieb2020-it; @Ben_Taieb2017-ok] few, if any, have explored improving forecast accuracy using a mixed effects framework. Mixed effects models are useful when non-independence is observed in the data, which often occurs when multiple observations are recorded from the same subject. If buildings behave in a similar manner a well-specified mixed model may produce more accurate forecasts than individual models. Furthermore, a mixed-model framework allows us to quantify differences between buildings which would not otherwise be possible when using a "building-specific" modelling approach. A mixed effects approach opens the door to scenario analyses by allowing us to estimate how demand might change under different equipment or usage scenarios.
 
-This paper explores how electricity forecasting accuracy can be improved by using mixed effects models. We examine if mixed models can produce forecasts as accurately as separate models fit for each subject. We approach the problem in the context of producing one-day ahead forecasts of electricity demand for `r n_buildings` commercial office buildings in Australia. When working with mixed effects models, each building is treated as a random effect and building characteristics are treated as fixed effects. We attempt to model the relationship between temperature and demand using both linear and spline based methods.
+This paper explores how electricity forecasting accuracy can be improved by using mixed effects models. We examine if mixed models can produce forecasts as accurately as separate models fit for each subject. We approach the problem in the context of producing one day ahead forecasts of electricity demand for `r n_buildings` commercial office buildings in Australia. Electricity demand readings at 15-minute intervals are taken from smart meters located at each of the buildings. These readings exhibit within-subject correlation which are well suited to modelling using mixed effects models, which we explore here. When working with mixed effects models, each building is treated as a random effect and building characteristics are treated as fixed effects. We attempt to model the relationship between temperature and demand using both linear and spline based methods.
 
 To the author's knowledge few papers have explored using mixed models in an electricity demand forecasting role. @Brabec2008-jf appears to be closest to this area. In their paper, a nonlinear mixed effects model (NLME) was used to forecast daily gas demand for individual customers. Predictors such as day of week and temperature were treated as random effects. Their NLME model was benchmarked against ARIMAX and ARX approaches. The paper concluded by saying there was no clear winner between the NLME and benchmark models and that both potentially have strengths and weaknesses. Unfortunately, there are few other papers within the energy field that use mixed effects models^[Some papers claim to use mixed models. However, this term is often applied to cases where a combination of models have been used which is different to mixed effects models in the statistical sense.] for forecasting.
 
-Moving away from the energy sector there are more papers to draw from. @Ibrahim2013-oc compared the performance of fixed effects and mixed effects models when forecasting call center arrivals. Making use of correlation structures within the data was shown to improve forecast accuracy when tested against several benchmark models on real-world data sets. @Frees2004-sx explored lottery sales forecasting by postcode using a linear mixed model applied to longitudinal data. They derived best linear unbiased predictors for what they termed longitudinal data mixed models. Random effects were incorporated for each subject and, separately, each time period. When compared against an ordinary regression model (with common intercept between all subjects) and a basic fixed effects model (with a different intercept for each subject), both with $AR(1)$ error structures, the mixed model that used both time and subject random effects (two-way error model) was found to be inferior when forecasting on an out-of-sample test set. However, another one-way error components model that only included treated subjects as random effects was found to produce the best forecasts overall. This suggests that mixed models can compete with ordinary _pooled_ regression models. However, the question remains as to how well a mixed model would perform when compared to ordinary regression models fit _separately_ to each subject. Another paper that focused on call center forecasting [@Aldor-Noiman2009-ji] used a mixed Poisson process to estimate future arrival counts. @Soyer2008-in had a similar aim and showed that a Bayesian approach incorporating random effects was superior to a fixed effects model.
+Moving away from the energy sector there are more papers to draw from. @Ibrahim2013-oc compared the performance of fixed effects and mixed effects models when forecasting call center arrivals. Making use of correlation structures within the data was shown to improve forecast accuracy when tested against several benchmark models on real-world data sets. @Frees2004-sx explored lottery sales forecasting by postcode using a linear mixed model applied to longitudinal data. They derived best linear unbiased predictors for what they termed longitudinal data mixed models. Random effects were incorporated for each subject and, separately, each time period. When compared against an ordinary regression model (with common intercept between all subjects) and a basic fixed effects model (with a different intercept for each subject), both with $AR(1)$ error structures, the mixed model that used both time and subject random effects (two-way error model) was found to be inferior when forecasting on an out-of-sample test set. However, another one-way error components model that only included treated subjects as random effects was found to produce the best forecasts overall. This suggests that mixed models can compete with ordinary _pooled_ regression models. However, the question remains as to how well a mixed model would perform when compared to ordinary regression models fit _separately_ to each subject. Another paper that focused on call center forecasting [@Aldor-Noiman2009-ji] used a mixed Poisson process to estimate future arrival counts. @Soyer2008-in had a similar aim and showed that a Bayesian approach incorporating random effects was superior to a fixed effects model. These papers all point to the viability of using mixed effects models for forecasting.
 
-These papers all point to the viability of using mixed effects models for forecasting. None explored the possibility of conducting scenario analysis by varying the fixed effects within a model. This is surprising as quantifying the impact of different characteristics between subjects is one of the obvious advantages of moving to a mixed effects framework. Our paper gives a simple illustration of how this may be done.
+Few papers have attempted to assess the impact of differences in building characteristics using statistical methods and smart meter data. To the author's knowledge, only a previous paper by @Roach2020-ch has looked into this using mixed effects models. Whereas that paper focused on estimating demand impact profiles for building attributes at different times of the year, this paper focuses on improving forecast accuracy for buildings with different characteristics.
 
-Few papers have attempted to assess the impact of differences in building characteristics using statistical methods and smart meter data. To the author's knowledge, only a previous paper by @Roach2020-ch has looked into this using mixed effects models. Whereas that paper focused on estimating demand impact profiles for building attributes at different times of the year, this paper focuses on improving forecast accuracy and producing scenario analyses by estimating the expected change in time series conditional on the building attributes.
+Several papers have shown the relationship between electricity demand and temperature are well modelled using nonparametric components such as cubic splines [@Hyndman2010-ui; @Fan2012-bs]. This paper uses a similar approach within a mixed model framework. Other papers that explore semiparametric mixed models include @Grajeda2016-vr; @Ugarte2009-hx; and @Durban2005-lk. @Durban2005-lk is of particular note as it introduces the concept of subject-specific curves using piecewise linear splines for longitudinal data. These subject specific curves are nonlinear functions that are allowed to vary by each subject. In this paper we first justify the use of subject-specific curves for modelling metered electricity demand before building on the existing methodology using natural splines.
 
-Several papers have shown the relationship between electricity demand and temperature are well modelled using nonparametric components such as cubic splines [@Hyndman2010-ui; @Fan2012-bs]. This paper uses a similar approach within a mixed model framework. Other papers that explore semiparametric mixed models include @Grajeda2016-vr; @Ugarte2009-hx; and @Durban2005-lk. @Durban2005-lk is of particular note as it introduces the concept of subject-specific curves using piecewise linear splines for longitudinal data. We build on the idea of subject-specific curves by applying them to time series data and incorporating natural splines.
+The main contribution of this paper is to present an approach to forecasting electricity demand for individual buildings using a mixed effects framework. Furthermore, our methodology is tested against several other benchmark models to quantify how forecasting accuracy is improved. Finally, this paper serves to enrich the literature on forecasting with mixed effects models and smart meter data.
 
-The main contribution of this paper is to present an approach to forecasting electricity demand for individual buildings using a mixed effects framework. Furthermore, we show how such a model can be used to conduct scenario analysis allowing us to quantify expected energy savings given changes in building attributes. Finally, this paper serves to enrich the literature on forecasting with mixed effects models and smart meter data.
-
-The paper is structured as follows. Section \@ref(data) describes the data we are working with. Section \@ref(methodology) gives a detailed description of the models formulations and how they are assessed. Forecasting results and a scenario analysis example are presented in Section \@ref(results). Concluding remarks are given in Section \@ref(conclusion).
+The paper is structured as follows. Section \@ref(data) describes the data we are working with. Section \@ref(methodology) gives a detailed description of the models formulations and how they are assessed. Forecasting results are presented in Section \@ref(results). Concluding remarks are given in Section \@ref(conclusion).
 
 # Data
 
@@ -321,9 +319,9 @@ We have time series and attribute data for `r n_buildings` commercial office bui
 
 ## Time series data
 
-Smart meter data recorded at 15-minute intervals for `r n_buildings` buildings are used when training and validating our models. The electricity demand is normalised by each building's net lettable area (NLA) to ensure demand is comparable between buildings. An example of a day of smart meter readings from six buildings is shown in Figure \@ref(fig:wh-line). Temperature data recorded at 15-minute intervals from the closest available weather station are also available for each building.
+Electricity demand data from `r n_buildings` commercial office buildings in Australia are used to train and validate our models. The electricity demand data is recorded at 15-minute intervals by smart meters located at each building. The electricity demand is normalised by each building's net lettable area (NLA) to ensure demand is comparable between buildings. An example of a day of smart meter readings from six buildings is shown in Figure \@ref(fig:wh-line). Temperature data recorded at 15-minute intervals from the closest available weather station are also available for each building.
 
-The relationship between current temperature and electricity demand is shown in Figure \@ref(fig:temp-wh-scatter) for two buildings at midday and midnight. There is a clear difference in this relationship between the business and non-business periods. Furthermore, this relationship varies between each building. Note that when splines are fitted independently for each building they can be very sensitive to outliers or data at domain extremes. This partly motivates our use of mixed effects models where data from multiple buildings can be used to fit these relationships resulting in models that are more robust to outliers or sparse data at extremes.
+The relationship between current temperature and electricity demand is shown in Figure \@ref(fig:temp-wh-scatter) for two buildings at midday and midnight. There is a clear difference in this relationship between the business and non-business periods. Furthermore, this relationship varies between each building. The different relationships for each building necessitates the use of a nonlinear demand response function that can adequately capture the unique response characteristics of each building. To accomplish this, we model our data with mixed effects models and capture the nonlinear building specific demand response using subject-specific curves. Note that when splines are fitted independently for each building they can be very sensitive to outliers or data at domain extremes. This also motivates our use of mixed effects models where data from multiple buildings can be used to fit these relationships giving models that are more robust to outliers or sparse data at covariate extremes.
 
 One issue that arises from only including business days is the gap between Friday and Monday in our demand time series. As we are including one-day lagged demand as one of our predictors, observed values on Monday will use Friday demand values as their one-day lagged demand (and similarly for two-day lagged demand variables). If this weren't done and we instead used non-working days, a very different relationship between Monday's lagged demand variables and current demand would be observed compared to other weekdays.
 
@@ -383,9 +381,32 @@ Building attribute data describes different characteristics of each building. Th
 
 For a more detailed discussion of each of these attributes refer to @Roach2020-ch.
 
-## Modelling the temperature electricity relationship
+# Methodology
 
-The relationship between temperature and electricity demand is shown in Figure \@ref(fig:plot-linear-cubic-splines). The relationship is modelled using three approaches: a linear spline, cubic spline and natural spline. All are fitted with three degrees of freedom. We can see that using the linear spline doesn't capture the smooth sigmoid like curve of the relationship whereas the cubic spline appears to extrapolate in an unrealistic manner at the extreme temperatures. The natural spline has less pronounced movement near the extremes due to the linearity constraint and so it is preferred over the other two methods. Hence, each weather variable and lagged weather variable is modelled using a natural spline with three degrees of freedom. Knots were placed at the 33^rd^ and 67^th^ quantiles.
+We focus on the problem of one day ahead electricity demand forecasting for commercial buildings. This has important applications such as allowing facility managers to adequately prepare a building for demand response (by adjusting set points and operational schedules) and reducing peak demand to avoid high capacity^[Peak demand events over a certain time frame are often factored into a commercial building's electricity tariffs. These are known as capacity charges.] or time of use charges.
+
+Several linear and mixed effects models were tested to determine which produced the most accurate forecasts conditional on selected features. Here we describe the various benchmarking and mixed effects models and their formulations. All analysis was produced using the R statistical programming language [@R-base]. Mixed effects models were fit using the `lme4` package for mixed effects models [@R-lme4]. All code used to run this analysis has been made available in the [https://github.com/camroach87/1901-nlmets](https://github.com/camroach87/1901-nlmets) GitHub repository.
+
+## Model formulation
+
+To justify our final model we test several models that can be thought of as simpler versions. Each model has a change introduced and the improvement in performance is used as justification for each. As a starting benchmark, we fit a naive model that uses the previous day's observed values. The second model fit individual linear regression models to each building. The third model also involves fitting a set of individual models but incorporate natural splines to model the temperature and demand relationships. The fourth model is the first to be trained using data from all the buildings and treats each building as a dummy variable. The fifth, sixth and seventh models are random intercept, random slope and subject-specific curve models. Finally, the eighth model is a subject-specific curve model that includes building attributes as fixed effects. This is summarised in Table \@ref(tab:model-frameworks).
+
+(ref:model-frameworks) Model descriptions
+
+```{r model-frameworks}
+read_csv("data/model-descriptions.csv") %>% 
+  knitr::kable(
+    format = "latex",
+    booktabs = TRUE,
+    caption = "(ref:model-frameworks)",
+    longtable = FALSE
+  ) %>%
+  kableExtra::kable_styling(full_width = TRUE)
+```
+
+Due to the evolving nature of energy demand across the day we fit separate models for each 15-minute period of the day. This gives 96 models for each building when fitting individual model formulations and 96 models for each mixed effects formulation.
+
+Throughout our modelling we use natural splines to fit the relationship between predictor variables and demand. This differs somewhat from other studies on semiparametric mixed effects models which use piecewise linear splines to model variable relationships [@Durban2005-lk]. An example for temperature and electricity demand is shown in Figure \@ref(fig:plot-linear-cubic-splines). We see that a natural spline gives a more reasonable fit at the sparsely populated extremes compared to other spline functions.
 
 (ref:linear-cubic-splines-cap) Linear and cubic splines with three degrees of freedom fit to one building's demand data during Summer at 11:45 am. We observe that the linear spline results in severe kinks in the relationship which seems unrealistic. The cubic spline gives a much smoother fit and appears to be the more reasonable option. The natural spline is better again as it does not have the dramatic dip in predicted demand that the cubic spline has for high temperatures.
 
@@ -430,31 +451,6 @@ ggplot(mapping = aes(x = temperature)) +
   theme(legend.position = "none")
 ```
 
-# Methodology
-
-Several linear and mixed effects models were tested to determine which produced the most accurate forecasts conditional on selected features. Here we describe the various benchmarking and mixed effects models and their formulations. All analysis was produced using the R statistical programming language [@R-base]. Mixed effects models were fit using the `lme4` package for mixed effects models [@R-lme4].
-
-## Model formulation
-
-To justify our final model that we use for scenario analysis we test several models that can be thought of as simpler versions. Each model has a change introduced and the improvement in performance is used as justification for each. As a starting benchmark, we fit a naive model that uses the previous day's observed values. The second model fit individual linear regression models to each building. The third model also involves fitting a set of individual models but incorporate natural splines to model the temperature and demand relationships. The fourth model is the first to be trained using data from all the buildings and treats each building as a dummy variable. The fifth, sixth and seventh models are random intercept, random slope and subject-specific curve models. Finally, the eighth model is a subject-specific curve model that includes building attributes as fixed effects. This is summarised in Table \@ref(tab:model-frameworks).
-
-(ref:model-frameworks) Model descriptions
-
-```{r model-frameworks}
-read_csv("data/model-descriptions.csv") %>% 
-  knitr::kable(
-    format = "latex",
-    booktabs = TRUE,
-    caption = "(ref:model-frameworks)",
-    longtable = FALSE
-  ) %>%
-  kableExtra::kable_styling(full_width = TRUE)
-```
-
-Due to the evolving nature of energy demand across the day we fit separate models for each 15-minute period of the day. This gives 96 models for each building when fitting individual model formulations and 96 models for each mixed effects formulation.
-
-Throughout our modelling we use natural splines to model the relationship between predictor variables and demand. This differs somewhat from other studies on semiparametric mixed effects models which use piecewise linear splines to model variable relationships [@Durban2005-lk]. However, when we inspect Figure \@ref(fig:plot-linear-cubic-splines) we see that a natural spline gives a more reasonable fit at the sparsely populated extremes when dealing with temperature data.
-
 Predictors are centered and scaled prior to training models. The exact features that are used for models are determined through our feature selection approach (Section \@ref(feature-selection)). Models are fit by maximising the log-likelihood criterion.
 
 ### Individual models
@@ -481,14 +477,11 @@ where $p$ is the 15-minute period of the day at time $t$, $w_{0,t}$ is the scale
 
 A linear relationship between temperature and electricity demand may not be sufficient to adequately capture the relationship between the two. Natural cubic splines allow a more flexible relationship between predictors and the response. In this model the log demand of each building is modelled separately using natural splines. A building's demand based on temperature and other selected predictors is given by
 $$
-\begin{gathered}
-\log y_{t} = f_p(w_{0,t}) + \epsilon_{t}, \quad \epsilon_{t} \sim N(0, \sigma^2_{p}), \\
-f_p(x) = \sum^K_{k=1} \beta_{p,k} (x - \kappa_k)_+^3,
-\end{gathered}
+\log y_{t} = f_p(w_{0,t}) + \epsilon_{t}, \quad \epsilon_{t} \sim N(0, \sigma^2_{p}),
 $$
-where $f_p$ is a smooth function modelling the relationship between $w_{0,t}$ and the logged demand for period $p$. We refer to this set of models as the "Individual Natural Spline" (INS) models.
+where $f_p$ is a smooth function modelling the relationship between $w_{0,t}$ and the logged demand for period $p$. The function $f_p$ is modelled using natural cubic splines with three degrees of freedom. Knots are set at the 33.3^rd^ and 66.6^th^ quantiles of $w_{0,t}$. We refer to this set of models as the "Individual Natural Spline" (INS) models.
 
-We use natural splines with three degrees of freedom as our smooth functions. Knot positions $\kappa_k$ are calculated based on quantiles of the data. Natural splines are chosen over other types as they enforce the constraint of linearity beyond the boundary points, which seems a fair assumption when considering the behaviour of electricity demand consumption in relation to extreme temperatures (see Figure \@ref(fig:plot-linear-cubic-splines) for an illustration). We wish to create a parsimonious model and assuming anything beyond a linear relationship in the extremes seems contrary to that aim. Failing to enforce the linearity constraint may result in unusual relationships being predicted if extrapolating beyond the training data.
+We use natural splines with three degrees of freedom as our smooth functions. Natural splines are chosen over other types as they enforce the constraint of linearity beyond the boundary points, which seems a fair assumption when considering the behaviour of electricity demand consumption in relation to extreme temperatures (see Figure \@ref(fig:plot-linear-cubic-splines) for an illustration). We wish to create a parsimonious model and assuming anything beyond a linear relationship in the extremes seems contrary to that aim. Failing to enforce the linearity constraint may result in unusual relationships being predicted if extrapolating beyond the training data.
 
 
 \begin{table}[t]
@@ -521,24 +514,21 @@ $y_{b,672,t}$ & 672 & Scaled actual demand lagged by 1 week. \\
 
 Our pooled regression model is fit using data from all buildings. One model is fit for each 15-minute period of the day which is then used to predict demand of each building $b$ at time $t$. Note that since all buildings are included in the model, we introduce the $b$ subscript for buildings.
 
-Additional predictor variables are introduced in this model, such as lagged temperature variables; maximum, minimum and average temperatures; and lagged demand. A description of each predictor is presented in Table \@ref(tab:weather-vars). We denote this set of predictor variables as $\mathcal{P}_t$, which contains the selected variables for the 15-minute period of day and month at time $t$. The exact combination of variables is chosen via our feature selection methodology described in Section \@ref(feature-selection). This model is used when selecting features as it is much faster to train than a mixed effects model.
+Additional predictor variables are introduced in this model, such as lagged temperature variables; maximum, minimum and average temperatures; and lagged demand. When doing one day ahead forecasts we do not have demand observations within the last 24 hours to use as lags and so we restrict our lagged demand variables to 1 day, 2 days and 3 days. The temperature variables can have 1-24 hour lags as temperature forecasts can be used to supplement the already observed data. Note that in this paper we restrict ourselves to using actual temperature data and not forecast temperature data to ensure our results are dependent on model formulations and not on any errors in temperature forecasts. In practice, forecast temperature data can be used instead. A description of each predictor is presented in Table \@ref(tab:weather-vars). We denote this set of predictor variables as $\mathcal{P}_t$, which contains the selected variables for the 15-minute period of day and month at time $t$. The exact combination of variables is chosen via our feature selection methodology described in Section \@ref(feature-selection). This model is used when selecting features as it is much faster to train than a mixed effects model.
 
 The demand of building $b$ at time $t$ is given by
 $$
-\begin{gathered}
-\log y_{b,t} = \sum_{x_{b,i,t} \in \mathcal{P}_t } f_{i,p}(x_{b,i,t}) + \alpha_{b,p}+ \epsilon_{b,t}, \quad \epsilon_{b,t} \sim N(0, \sigma^2_{p}), \\
-f_{i,p}(x) = \sum^K_{k=1} \beta_{i,p,k} (x - \kappa_k)_+^3,
-\end{gathered}
+\log y_{b,t} = \sum_{x_{b,i,t} \in \mathcal{P}_t } f_{i,p}(x_{b,i,t}) + \alpha_{b,p}+ \epsilon_{b,t}, \quad \epsilon_{b,t} \sim N(0, \sigma^2_{p}),
 $$
-where $x_{b,i,t}$ is the value of building $b$'s $i$^th^ predictor variable at time $t$ and $f_{i,p}$ is a smooth function modelling the relationship between $x_{b,i,t}$ and the logged demand for period $p$. A dummy variable $\alpha_{b,p}$ has been added to account for differences in each building's consumption. We call this our "Pooled Regression" (PR) model.
+where $x_{b,i,t}$ is the value of building $b$'s $i$^th^ predictor variable at time $t$ and $f_{i,p}$ is a smooth function modelling the relationship between $x_{b,i,t}$ and the logged demand for period $p$. Again, the function $f_{i,p}$ is modelled using natural cubic splines with three degrees of freedom and knots set at the 33.3^rd^ and 66.6^th^ quantiles of each predictor $x_{b,i,t}$. A dummy variable $\alpha_{b,p}$ has been added to account for differences in each building's consumption. We call this our "Pooled Regression" (PR) model.
 
-We do not estimate a separate smooth relationship between weather variables and demand for each building in the pooled model. Instead, we estimate the population's relationship. So, for the $i$^th^ predictor we construct a smooth function $f_{i,p}$ for all buildings instead of a set of smooth functions $f_{b,i,p}$ for each building.
+We do not estimate a separate smooth relationship between predictor variables and demand for each building in the pooled model. Instead, we estimate the population's relationship. So, for the $i$^th^ predictor we construct a smooth function $f_{i,p}$ for all buildings instead of a set of smooth functions $f_{b,i,p}$ for each building.
 
 ### Mixed models
 
 Having specified our framework for fitting separate models to each building it is now time to explore fitting mixed models. In each mixed effects model that follows, all buildings are included by treating each as a random effect. In section \@ref(forecasting-accuracy) we show that mixed models improve prediction accuracy and have the added benefit of allowing us to quantify the impact of building attributes on electricity demand.
 
-Originally, random effects were incorporated into each of the lagged weather variables, but this resulted in very poor fits presumably due to the high dimensionality. Instead, as with the PR model, we model the population relationship for all selected predictor variables and allow for subject-specific differences using random intercepts, random slopes and subject-specific curves (based on current temperature).
+Originally, random effects were incorporated into each of the lagged temperature and lagged demand variables, but this resulted in very poor fits presumably due to the high dimensionality. Instead, as with the PR model, we model the population relationship for all selected predictor variables and allow for subject-specific differences using random intercepts, random slopes and subject-specific curves (based on current temperature).
 
 As with the PR model, we include subscripts $b$ to denote each building. Unlike the individual formulations, which had separate models fit to each building, all buildings are used when training the mixed effects models and so we include an additional subscript to denote this. Again, to capture changing demand characteristics across the day, separate models are fit for each 15-minute period of the day giving 96 models for each mixed effects formulation.
 
@@ -548,7 +538,6 @@ The simplest mixed effects model is a random intercept (RI) model. We model the 
 $$
 \begin{gathered}
 \log y_{b,t} = \sum_{x_{b,i,t} \in \mathcal{P}_t } f_{i,p}(x_{b,i,t}) + u_{b,p} + \epsilon_{b,t}, \\
-f_{i,p}(x) = \sum^K_{k=1} \beta_{i,p,k} (x - \kappa_k)_+^3, \\
 \epsilon_{b,t} \sim N(0, \sigma^2_{\epsilon, p}), \quad u_{b,p} \sim N(0, \sigma_{u,p}^2),
 \end{gathered}
 $$
@@ -560,7 +549,6 @@ Expanding on this is the random intercept and slope (RIS) model which has a rand
 $$
 \begin{gathered}
 \log y_{bt} = \sum_{x_{b,i,t} \in \mathcal{P}_t } f_{i,p}(x_{b,i,t}) + u_{b,p,1} + u_{b,p,2} w_{b,0,t} + \epsilon_{b,t}, \\
-f_{i,p}(x) = \sum^K_{k=1} \beta_{i,p,k} (x - \kappa_k)_+^3, \\
 \epsilon_{b,t} \sim N(0, \sigma^2_{\epsilon, p}), \quad
 (u_{b,p,1}, u_{b,p,2})^T \sim N(0, \Sigma), \quad
 \Sigma = \begin{bmatrix}
@@ -574,32 +562,35 @@ Here we have included a random slope based on scaled current temperature, $w_{b,
 
 #### Subject-specific curves model
 
-As the relationship between demand and temperature can be quite non-linear we also explore modelling the subject-specific differences in the temperature and energy relationship using splines. We call this model the subject-specific curve (SSC) model in keeping with @Durban2005-lk. Note that we have modified their model to work with natural cubic splines as this gives a better fit when modelling the temperature and electricity relationship compared to penalized linear splines (Figure \@ref(fig:plot-linear-cubic-splines)). It is given by
+As the relationship between demand and temperature can be quite nonlinear we also explore modelling the subject-specific differences in the temperature and energy relationship using splines. We call this model the subject-specific curve (SSC) model in keeping with @Durban2005-lk. Note that we have modified their model to work with natural cubic splines as this gives a better fit when modelling the temperature and electricity relationship compared to penalized linear splines (Figure \@ref(fig:plot-linear-cubic-splines)). It is given by
 $$
 \begin{gathered}
 \log y_{bt} = \sum_{x_{b,i,t} \in \mathcal{P}_t } f_{i,p}(x_{b,i,t}) + g_{b,p}( w_{b,0,t} ) + \epsilon_{b,t}, \\
-f_{i,p}(x) = \sum^K_{k=1} \beta_{i,p,k} (x - \kappa_k)_+^3, \quad g_{b,p}(x) = \sum^K_{k=1} u_{b,p,k} (x - \kappa_k)_+^3, \\
-\epsilon_{b,t} \sim N(0, \sigma^2_{\epsilon, p}), \quad
-u_{b,p,k} \sim N(0, \sigma^2_{u,p}).
+\epsilon_{b,t} \sim N(0, \sigma^2_{\epsilon, p}).
 \end{gathered}
 $$
 
-As with our other models we use natural cubic splines with three degrees of freedom for both $f_{i,p}$ and $g_{b,p}$. This model allows us to capture separate temperature and electricity relationships for each building while also including the population relationships between electricity demand and other selected predictors.
+As with our other models we use natural cubic splines with three degrees of freedom for our smooth function $f_{i,p}$. The function $g_{b,p}$ is a subject specific curve and is defined as
+$$
+\begin{gathered}
+g_{b,p}(x) = u_{b,p,0} + \sum^3_{k=1} u_{b,p,k} B_{p,k}(x), \\
+\left( u_{b,p,0}, \ldots, u_{b,p,3} \right) \sim N(0, \Sigma),
+\end{gathered}
+$$
+where $B_{p,k}$ are cubic B-spline basis functions and $u_{b,p,k}$ are correlated random effects. This model allows us to capture separate temperature and electricity relationships for each building while also including the population relationships between electricity demand and other selected predictors.
 
 #### Subject-specific curves with attributes model
 
-As we wish to carry out scenario analysis we introduce several new variables into our model. These variables are the set of building attributes discussed in Section \@ref(attribute-data) which we denote by $\mathcal{A}$. We treat each of these attributes as a fixed effect. We refer to this model as the subject-specific curves with attributes (SSCATTR) model.
+Here we introduce several new variables into our model. These variables are the set of building attributes discussed in Section \@ref(attribute-data) which we denote by $\mathcal{A}$. We treat each of these attributes as a fixed effect. We refer to this model as the subject-specific curves with attributes (SSCATTR) model.
 
-Our model for scenario analysis is given below
+Our model is given below
 $$
 \begin{gathered}
 \log y_{bt} = \sum_{x_{b,i,t} \in \mathcal{P}_t } f_{i,p}(x_{b,i,t}) + g_{b,p}( w_{b,0,t} ) + \sum_{a \in \mathcal{A}} \beta_a x_{b,a} + \epsilon_{b,t}, \\
-f_{i,p}(x) = \sum^K_{k=1} \beta_{i,p,k} (x - \kappa_k)_+^3, \quad g_{b,p}(x) = \sum^K_{k=1} u_{b,p,k} (x - \kappa_k)_+^3, \\
-\epsilon_{b,t} \sim N(0, \sigma^2_{\epsilon, p}), \quad
-u_{b,p,k} \sim N(0, \sigma^2_{u,p}).
+\epsilon_{b,t} \sim N(0, \sigma^2_{\epsilon, p}),
 \end{gathered}
 $$
-This is the same as our SSC model apart from the addition of the building attributes. The fixed effect $x_{b,a}$ is a Boolean variable that indicates if attribute $a$ is present for building $b$.
+where all terms and functions are defined as in the SSC model. The new fixed effect $x_{b,a}$ is a Boolean variable that indicates if attribute $a$ is present for building $b$. Including building attributes as fixed effects allows one to conduct scenario analyses by predicting the expected demand with and without certain attributes present.
 
 ## Feature selection
 
@@ -621,11 +612,11 @@ $$
 
 where $e_i$ are the residuals of the model and $h_i$ are the diagonal elements of the hat-matrix $\mathbf{H} = \mathbf{X} \left( \mathbf{X}' \mathbf{X}  \right)^{-1} \mathbf{X}'$.
 
-Training data are comprised of business days within a window of `r fcst_train_window` days prior to the month we wish to select variables for. As our experimental setup for the validation phase involves one-day ahead forecasts, this variable selection prevents us from using any data from the future. For example, when forecasting for any date in January, only data from the months preceding January would have been used to select predictors.
+Training data are comprised of business days within a window of `r fcst_train_window` days prior to the month we wish to select variables for. As our experimental setup for the validation phase involves one day ahead forecasts, this variable selection prevents us from using any data from the future. For example, when forecasting for any date in January, only data from the months preceding January would have been used to select predictors.
 
-We use best subset selection during feature selection. Given $p$ predictors we choose the combination of these that produce the best $R^2$ scores. Once the best model based on $R^2$ has been determined for each set of $p$ predictors, we use the LOOCV score to determine the overall best. The LOOCV score is chosen as it gives an estimate of the out of sample performance of our models. Figure \@ref(fig:fs-model-selection) shows the LOOCV scores for each predictor set of size $p$. During feature selection we chose to avoid greedy approaches such as forward or backward stepwise selection; or approaches that work systematically through lagged weather variables [@Hyndman2010-ui]. Naturally, greedy methods have computational benefits, but it is interesting to observe which features are chosen when _all_ possible predictor combinations are assessed.
+We use best subset selection during feature selection. Given $m$ predictors we choose the combination of these that produce the best $R^2$ scores. Once the best model based on $R^2$ has been determined for each set of $m$ predictors, we use the LOOCV score to determine the overall best. The LOOCV score is chosen as it gives an estimate of the out of sample performance of our models. Figure \@ref(fig:fs-model-selection) shows the LOOCV scores for each predictor set of size $m$. During feature selection we chose to avoid greedy approaches such as forward or backward stepwise selection; or approaches that work systematically through lagged predictor variables [@Hyndman2010-ui]. Naturally, greedy methods have computational benefits, but it is interesting to observe which features are chosen when _all_ possible combinations are assessed.
 
-A key point to note is that feature selection was done on the weather variables and _not_ the spline basis functions. Doing so would destroy the properties of a spline if only a subset of its basis functions were to be selected.
+A key point to note is that feature selection was done on the predictor variables and _not_ the spline basis functions. Doing so would destroy the properties of a spline if only a subset of its basis functions were to be selected.
 
 (ref:fs-model-selection) LOOCV scores (log scale) for each month. In general, the LOOCV errors initially decrease as variables are added, but begin to increase slightly at a certain point for each period.
 
@@ -674,7 +665,7 @@ When comparing these metrics in Section \@ref(forecasting-accuracy), we find tha
 
 # Results
 
-In order to build a better understanding of how a mixed model framework improves upon fitting individual models to each building we need to assess each model's performance. To do so, we create one-day ahead ex-post forecasts and calculate the MAE, MAPE, sMAPE and MASE for each. We focus on ex-post forecasting as we wish to examine error caused by model specification and ignore errors caused by incorrect weather forecasts, as would be the case in an ex-ante forecasting scenario.
+In order to build a better understanding of how a mixed model framework improves upon fitting individual models to each building we need to assess each model's performance. To do so, we create one day ahead ex-post forecasts and calculate the MAE, MAPE, sMAPE and MASE for each. We focus on ex-post forecasting as we wish to examine error caused by model specification and ignore errors caused by incorrect weather forecasts, as would be the case in an ex-ante forecasting scenario.
 
 
 ## Variables chosen via feature selection
@@ -682,7 +673,7 @@ In order to build a better understanding of how a mixed model framework improves
 Figure \@ref(fig:fs-alpha) show the number of times each variable is selected for all months of the year. There is a lot of variation in the selected predictors, even between adjacent 15-minute periods. By overlaying all of the months we do observe some structure. Perhaps the most noticeable characteristic is that temperature variables are selected more often during business hours, which shows the influence temperature has on demand during the day and how temperature influences occupant behaviour. Outside of these hours we see fewer temperature variables selected. Another point of interest is that during business hours, lagged demand variables are selected less often than for non-business hours. It would appear as though serial correlation in the demand time series is a more useful predictor during non-business hours than temperature. Thermal inertia does not appear to influence demand as much during non-business hours.
 
 
-(ref:fs-alpha) Feature selection for all months. The number of times a variable has been selected across all 12 months is indicated by the transparency of each tile for a given period. In general, weather features are selected more often during business hours. During non-business hours, weather features are selected less often, but lagged demand variables are almost always selected.
+(ref:fs-alpha) Feature selection for all months. The number of times a variable has been selected across all 12 months is indicated by the transparency of each tile for a given period. In general, temperature features are selected more often during business hours. During non-business hours, temperature features are selected less often, but lagged demand variables are almost always selected.
 
 ```{r fs-alpha, fig.height = 6, fig.cap="(ref:fs-alpha)"}
 fs_df %>%
@@ -777,7 +768,7 @@ accuracy_df %>%
   kableExtra::group_rows("Non-business hours", 17, 24)
 ```
 
-(ref:one-day-ahead-forecast-cap) One-day ahead forecasts for `r format(p_one_day_ahead_date, "%e %B, %Y")`. The Naive (yesterday's actuals) and SSC models are shown. The naive model often includes erratic spikes whereas the SSC model tends to produce a smoother profile.
+(ref:one-day-ahead-forecast-cap) One day ahead forecasts for `r format(p_one_day_ahead_date, "%e %B, %Y")`. The Naive (yesterday's actuals) and SSC models are shown. The naive model often includes erratic spikes whereas the SSC model tends to produce a smoother profile.
 
 ```{r one-day-ahead-forecast, fig.cap="(ref:one-day-ahead-forecast-cap)"}
 p_bid <- paste0("BID", c("0025", "0058", "0112", "0203", "0205", "1101"))
@@ -854,115 +845,12 @@ model_df %>%
 ```
 
 
-## Scenario analysis
-
-Having confirmed that our mixed models produce satisfactory predictions compared to individual models provides us with justification for using them for scenario analysis. We can assess how changing certain variable values increases or decreases energy demand in buildings.
-
-We will now show an example of producing scenario analysis for one of our buildings using this model. Building `r scenario_bid` has the attributes listed in Table \@ref(tab:attributes-scenario-bid). If any of the attribute values are modified and then the expected energy consumption is recalculated, we can take the difference between the original predictions to estimate how energy demand will change. Figure \@ref(fig:attribute-changes) shows how expected demand changes when we vary building attributes for several days in January. Figure \@ref(fig:cumulative-impact-dx) shows the cumulative change in energy consumption if the building were to switch away from using a DX system. These normalised energy savings (or increases) can then be converted to a dollar figure by simply multiplying by the net lettable area of the building and the appropriate electricity tariffs. Such an approach allows us to quantify the expected savings, both financially and in terms of energy consumption, allowing for better decision making when it comes to building management and retrofits.
-
-(ref:attributes-scenario-bid-cap) Building attributes for Building `r scenario_bid`.
-
-```{r attributes-scenario-bid}
-main_df %>%
-  filter(bid == scenario_bid) %>%
-  select(!!building_attributes) %>%
-  slice(1) %>%
-  gather(Attribute, Present) %>%
-  knitr::kable(
-    format = "latex",
-    booktabs = TRUE,
-    caption = "(ref:attributes-scenario-bid-cap)"
-  ) %>%
-  kableExtra::kable_styling()
-```
-
-(ref:attribute-changes) Expected normalised electricity consumption for three days in January, 2017 for building `r scenario_bid`. The grey line shows the actual demand that was observed on each day. The expected demand of the existing building is shown ("Original building"), as well as four scenarios each of which involves the modification of one attribute.
-
-```{r attribute-changes, fig.cap="(ref:attribute-changes)"}
-p_data <- model_df %>%
-  select(period, fcst_date, scenarios) %>%
-  # filter(fcst_date %in% (ymd("2017-01-09") + 0:4)) %>%
-  filter(fcst_date %in% scenario_dates[2:4]) %>%
-  unnest(cols = c(scenarios)) %>%
-  filter(bid %in% scenario_bid)
-
-ggplot() +
-  geom_line(
-    data = p_data, aes(x = ts, y = wh),
-    colour = "grey"
-  ) +
-  geom_line(data = p_data, aes(x = ts, y = pred), colour = ba_palette[1]) +
-  ylim(0, NA) +
-  facet_wrap(~scenario, ncol = 1) +
-  theme(legend.position = "none") +
-  labs(
-    y = expression(Normalised ~ electricity ~ (Wh / m^2)),
-    x = "Date",
-    colour = "Scenario"
-  )
-```
-
-(ref:cumulative-impact-dx) Cumulative energy impact after removing DX system. We can see that the cumulative change in energy consumption steadily decreases indicating buildings without DX systems are more efficient.
-
-```{r cumulative-impact-dx, fig.cap="(ref:cumulative-impact-dx)"}
-scenario_vars <- c("Original building", "Switch from DX system")
-
-p_df <- model_df %>%
-  select(period, fcst_date, scenarios) %>%
-  filter(fcst_date %in% scenario_dates) %>%
-  unnest(cols = c(scenarios)) %>%
-  filter(
-    bid == scenario_bid,
-    scenario %in% c("original", "dxsystem")
-  ) %>%
-  mutate(scenario = factor(scenario,
-    levels = c("original", "dxsystem"),
-    labels = scenario_vars
-  )) %>%
-  select(scenario, ts, pred) %>%
-  spread(scenario, pred) %>%
-  mutate(
-    saving = get(scenario_vars[2]) - get(scenario_vars[1]),
-    saving = cumsum(saving)
-  ) %>%
-  gather(var, Wh, -ts) %>%
-  mutate(
-    facet_row = if_else(var %in% scenario_vars, "Energy usage",
-      "Cumulative difference"
-    ),
-    facet_row = factor(facet_row, levels = c(
-      "Energy usage",
-      "Cumulative difference"
-    ))
-  )
-
-ggplot(mapping = aes(x = ts, y = Wh)) +
-  geom_line(
-    data = p_df %>%
-      filter(var %in% scenario_vars) %>%
-      rename(scenario = var),
-    aes(colour = scenario)
-  ) +
-  geom_area(
-    data = filter(p_df, var == "saving"), fill = ba_palette[2],
-    alpha = 0.5
-  ) +
-  facet_wrap(~facet_row, ncol = 1, scales = "free_y") +
-  theme(legend.position = "bottom") +
-  labs(
-    y = expression(Normalised ~ electricity ~ (Wh / m^2)),
-    x = "Date",
-    colour = ""
-  )
-```
-
 # Conclusion
 
 This paper explores the possibility of using mixed effects models in a forecasting role. We first specified several different models. A best subset selection approach was proposed to determine which predictor variables should be used. Feature selection was carried out for each month of the year and 15-minute period of the day, which allowed us to observe how the importance of lagged temperature and demand variables changed throughout the day.
 
-We fit models to `r n_buildings` buildings across Australia. Separate models for each building were fitted as a benchmark. The overall predictive power of several mixed effects models were assessed against this benchmark. One-day ahead forecasts were produced for business days over a year using all forecast methods. Based on the MAE, MAPE, sMAPE and MASE scores of each model the SSC and SSCATTR models performed best. We concluded that predicting demand using mixed effects model could improve forecast accuracy and had the additional advantage of allowing us to conduct scenario analyses.
+We fit models to `r n_buildings` buildings across Australia. Separate models for each building were fitted as a benchmark. The overall predictive power of several mixed effects models were assessed against this benchmark. One day ahead forecasts were produced for business days over a year using all forecast methods. Based on the MAE, MAPE, sMAPE and MASE scores of each model the SSC and SSCATTR models performed best. We concluded that predicting electricity demand using nonlinear mixed effects models can improve forecast accuracy.
 
-Finally, we included an example of using the SSCATTR model for scenario analysis for one of the buildings in our data set. The expected change in electricity demand was plotted when several of the attributes were varied. The expected change in consumption over the course of one workweek when a building moved away from using a DX system allowed us to quantify the potential savings in energy. Analyses such as these have applications for decision makers and facility managers that wish to understand the effectiveness of changes in building management or potential retrofits of equipment.
 
 # Acknowledgements {-}
 
