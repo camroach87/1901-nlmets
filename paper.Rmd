@@ -4,7 +4,7 @@ author:
 - familyname: Roach
   othernames: Cameron
   address: Monash University
-  email: camroach87@gmail.com
+  email: cameron.roach@monash.edu
   correspondingauthor: true
 - familyname: Hyndman
   othernames: Rob
