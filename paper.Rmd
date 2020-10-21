@@ -385,7 +385,7 @@ For a more detailed discussion of each of these attributes refer to @Roach2020-c
 
 We focus on the problem of one day ahead electricity demand forecasting for commercial buildings. This has important applications such as allowing facility managers to adequately prepare a building for demand response (by adjusting set points and operational schedules) and reducing peak demand to avoid high capacity^[Peak demand events over a certain time frame are often factored into a commercial building's electricity tariffs. These are known as capacity charges.] or time of use charges.
 
-Several linear and mixed effects models were tested to determine which produced the most accurate forecasts conditional on selected features. Here we describe the various benchmarking and mixed effects models and their formulations. All analysis was produced using the R statistical programming language [@R-base]. Mixed effects models were fit using the `lme4` package for mixed effects models [@R-lme4]. All code used to run this analysis has been made available in the [https://github.com/camroach87/1901-nlmets](https://github.com/camroach87/1901-nlmets) GitHub repo.
+Several linear and mixed effects models were tested to determine which produced the most accurate forecasts conditional on selected features. Here we describe the various benchmarking and mixed effects models and their formulations. All analysis was produced using the R statistical programming language [@R-base]. Mixed effects models were fit using the `lme4` package for mixed effects models [@R-lme4]. All code used to run this analysis has been made available in the [https://github.com/camroach87/1901-nlmets](https://github.com/camroach87/1901-nlmets) GitHub repository.
 
 ## Model formulation
 
