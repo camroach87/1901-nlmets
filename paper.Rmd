@@ -26,6 +26,7 @@ output:
     fig_caption: yes
     fig_height: 5
     fig_width: 8
+    fig_crop: false
     includes:
       in_header: preamble.tex
     keep_tex: yes
@@ -40,7 +41,7 @@ knitr::opts_chunk$set(
   warning = FALSE,
   cache = FALSE,
   cache.lazy = FALSE,
-  dev = "pdf",
+  dev = "postscript",
   fig.height = 5,
   fig.width = 8.5
 )
@@ -356,8 +357,8 @@ main_df %>%
   mutate(time = seconds_to_period(period*15*60),
          time = sprintf("%02d:%02d", time$hour, time$minute)) %>%
   ggplot(aes(x = temperature, y = log(wh), colour = time)) +
-  geom_point() +
-  stat_smooth(geom='line', alpha=1, se=FALSE, method = "lm",
+  geom_point(shape = "O") +
+  stat_smooth(geom='line', se=FALSE, method = "lm",
               formula = y ~ ns(x, df = 3)) +
   labs(
     y = expression(Log ~ normalised ~ electricity ~ (log(Wh / m^2))),
@@ -431,7 +432,7 @@ p_data <- p_data %>%
   )
 
 ggplot(mapping = aes(x = temperature)) +
-  geom_point(data = p_data, aes(y = log(wh)), shape = "O", alpha = 0.5) +
+  geom_point(data = p_data, aes(y = log(wh)), shape = "O") +
   geom_line(
     data = p_data %>%
       select(
@@ -627,7 +628,7 @@ fs_df %>%
   select(month, period, n_vars, loocv) %>%
   mutate(month = month(month, label = TRUE)) %>%
   ggplot(aes(y = loocv, x = n_vars, colour = period, group = period)) +
-  geom_line(alpha = 0.5) +
+  geom_line() +
   facet_wrap(~month) +
   scale_colour_gradient2(low = ba_palette[1], mid = ba_palette[4],
                          high = ba_palette[2], midpoint = 48) +
@@ -705,8 +706,8 @@ fs_df %>%
                               ordered = TRUE),
          description = fct_rev(description)) %>%
   filter(n_selected > 0) %>% # don't want any fill for 0
-  ggplot(aes(x = period, y = description, alpha = n_selected)) +
-  geom_tile(fill = ba_palette[1]) +
+  ggplot(aes(x = period, y = description, fill = n_selected)) +
+  geom_tile() +
   theme(
     panel.grid.major = element_blank(),
     panel.grid.minor = element_blank(),
@@ -715,11 +716,11 @@ fs_df %>%
   labs(
     x = "Period",
     y = NULL,
-    fill = "Predictor type",
-    alpha = "Selections"
+    fill = "Selections"
   ) +
   facet_grid(predictor_type ~ ., space = "free_y", scales = "free_y") +
-  scale_x_continuous(breaks = seq(8, 96, 8))
+  scale_x_continuous(breaks = seq(8, 96, 8)) +
+  scale_fill_gradient2(low = "white", high = ba_palette[1])
 ```
 
 
